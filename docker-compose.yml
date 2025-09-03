@@ -1,0 +1,261 @@
+name: geofence-webhooks
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: geofence_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: geofence
+      POSTGRES_USER: geofence_user
+      POSTGRES_PASSWORD: geofence_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/pgdata
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geofence_user -d geofence"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redpanda:
+    image: redpandadata/redpanda:v24.3.1
+    container_name: geofence_redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --node-id
+      - "0"
+      - --mode
+      - dev-container
+      - --kafka-addr
+      - internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr
+      - internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr
+      - internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr
+      - internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr
+      - internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr
+      - redpanda:33145
+      - --advertise-rpc-addr
+      - redpanda:33145
+      - --smp
+      - "1"
+    ports:
+      - "18081:18081" # Schema Registry
+      - "18082:18082" # REST Proxy
+      - "19092:19092" # Kafka API
+      - "9644:9644"   # Admin API
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mqtt-broker:
+    image: emqx/emqx:5.8.2
+    container_name: geofence_mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"      # MQTT
+      - "8083:8083"      # MQTT over WebSocket
+      - "8084:8084"      # MQTT over SSL WebSocket
+      - "18083:18083"    # Dashboard
+    environment:
+      EMQX_NAME: geofence_emqx
+      EMQX_HOST: 127.0.0.1
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: geofence123
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_log:/opt/emqx/log
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: geofence_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redpanda-console:
+    image: redpandadata/console:v2.7.2
+    container_name: geofence_redpanda_console
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: true
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+    volumes:
+      - ./docker/redpanda/console-config.yml:/tmp/config.yml
+
+  # Application Services
+  api:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+    container_name: geofence_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://geofence_user:geofence_pass@postgres:5432/geofence
+      KAFKA_BROKERS: redpanda:9092
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev:api
+
+  mqtt-ingestion:
+    build:
+      context: .
+      dockerfile: ./apps/mqtt-ingestion/Dockerfile
+    container_name: geofence_mqtt_ingestion
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      mqtt-broker:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      MQTT_BROKER_URL: mqtt://mqtt-broker:1883
+      KAFKA_BROKERS: redpanda:9092
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+    profiles:
+      - services
+
+  geofence-engine:
+    build:
+      context: .
+      dockerfile: ./apps/geofence-engine/Dockerfile
+    container_name: geofence_geofence_engine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://geofence_user:geofence_pass@postgres:5432/geofence
+      KAFKA_BROKERS: redpanda:9092
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev:geofence-engine
+    profiles:
+      - services
+
+  automation-workers:
+    build:
+      context: .
+      dockerfile: ./apps/automation-workers/Dockerfile
+    container_name: geofence_automation_workers
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://geofence_user:geofence_pass@postgres:5432/geofence
+      KAFKA_BROKERS: redpanda:9092
+      REDIS_URL: redis://redis:6379
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${GOOGLE_SERVICE_ACCOUNT_JSON:-}
+      NOTION_SECRET: ${NOTION_SECRET:-}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev:automation-workers
+    profiles:
+      - services
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: ./apps/dashboard/Dockerfile
+    container_name: geofence_dashboard
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      TILE_URL: ${TILE_URL:-https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png}
+      TILE_KEY: ${TILE_KEY:-}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev:dashboard
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:8.12
+    container_name: geofence_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@geofence.local
+      PGADMIN_DEFAULT_PASSWORD: geofence123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8081:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+  redpanda_data:
+  emqx_data:
+  emqx_log:
+  redis_data:
+  pgadmin_data:

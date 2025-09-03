@@ -1,0 +1,33 @@
+{
+  "name": "@geofence/geofence-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "lint": "eslint src/**/*.ts --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "pg": "^8.13.1",
+    "ioredis": "^5.4.1",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0",
+    "@geofence/shared": "*",
+    "@geofence/db": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.8.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "eslint": "^9.13.0"
+  }
+}

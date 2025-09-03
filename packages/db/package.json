@@ -1,0 +1,41 @@
+{
+  "name": "@geofence/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "migrate": "tsx scripts/migrate.ts",
+    "migrate:create": "tsx scripts/create-migration.ts",
+    "migrate:rollback": "tsx scripts/rollback.ts",
+    "seed:dev": "tsx scripts/seed-dev.ts",
+    "seed:prod": "tsx scripts/seed-prod.ts",
+    "backup": "tsx scripts/backup.ts",
+    "restore": "tsx scripts/restore.ts",
+    "reset": "tsx scripts/reset-db.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "pg": "^8.13.1",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "@types/node": "^22.8.0",
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.2"
+  }
+}

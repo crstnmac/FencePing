@@ -1,0 +1,135 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "daemon": true,
+  "concurrency": "10",
+  "envMode": "strict",
+  "globalEnv": [
+    "NODE_ENV",
+    "VERCEL_ENV",
+    "CI",
+    "DATABASE_URL",
+    "KAFKA_BROKERS",
+    "MQTT_BROKER_URL",
+    "REDIS_URL"
+  ],
+  "globalDependencies": [
+    "**/.env.*local",
+    ".env",
+    "tsconfig.json",
+    "package.json",
+    "docker-compose.yml"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**", 
+        "build/**"
+      ],
+      "inputs": [
+        "src/**",
+        "package.json",
+        "tsconfig.json",
+        "tsconfig.*.json"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "interruptible": true,
+      "dependsOn": ["^build"],
+      "env": [
+        "DATABASE_URL",
+        "KAFKA_BROKERS",
+        "MQTT_BROKER_URL",
+        "REDIS_URL",
+        "NODE_ENV",
+        "PORT",
+        "JWT_SECRET",
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN"
+      ]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**/*.{ts,tsx}",
+        "test/**/*.{ts,tsx}",
+        "tests/**/*.{ts,tsx}",
+        "**/*.test.{ts,tsx}",
+        "**/*.spec.{ts,tsx}",
+        "vitest.config.ts",
+        "jest.config.js"
+      ]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true,
+      "interruptible": true
+    },
+    "test:ui": {
+      "cache": false,
+      "persistent": true,
+      "interruptible": true
+    },
+    "lint": {
+      "inputs": [
+        "src/**/*.{ts,tsx,js,jsx}",
+        "*.{js,ts,json}",
+        "eslint.config.js",
+        ".eslintrc.*"
+      ],
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**/*.{ts,tsx}",
+        "tsconfig.json",
+        "tsconfig.*.json"
+      ],
+      "outputs": []
+    },
+    "format": {
+      "inputs": ["**/*.{ts,tsx,js,jsx,json,md,yml,yaml}"],
+      "outputs": []
+    },
+    "format:check": {
+      "inputs": ["**/*.{ts,tsx,js,jsx,json,md,yml,yaml}"],
+      "outputs": []
+    },
+    "clean": {
+      "cache": false,
+      "outputs": []
+    },
+    "migrate": {
+      "cache": false,
+      "env": [
+        "DATABASE_URL",
+        "NODE_ENV"
+      ],
+      "inputs": [
+        "src/migrations/**/*.sql",
+        "scripts/**/*.ts"
+      ]
+    },
+    "migrate:create": {
+      "cache": false
+    },
+    "seed:dev": {
+      "cache": false,
+      "env": [
+        "DATABASE_URL",
+        "NODE_ENV"
+      ],
+      "inputs": [
+        "scripts/**/*.ts",
+        "src/seeds/**"
+      ]
+    }
+  }
+}

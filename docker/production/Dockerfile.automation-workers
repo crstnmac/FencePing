@@ -1,0 +1,52 @@
+# Multi-stage build for automation workers
+FROM node:18-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY apps/automation-workers/package*.json ./apps/automation-workers/
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Build the source code
+FROM base AS builder
+WORKDIR /app
+COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+
+# Build shared packages first
+RUN npm run build --workspace=@geofence/shared
+
+# Build automation workers
+RUN npm run build --workspace=@geofence/automation-workers
+
+# Production image
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 automation-workers
+
+# Copy built application
+COPY --from=builder --chown=automation-workers:nodejs /app/apps/automation-workers/dist ./dist
+COPY --from=builder --chown=automation-workers:nodejs /app/packages/shared/dist ./packages/shared/dist
+COPY --from=deps --chown=automation-workers:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=automation-workers:nodejs /app/package*.json ./
+COPY --from=builder --chown=automation-workers:nodejs /app/packages/shared/package*.json ./packages/shared/
+COPY --from=builder --chown=automation-workers:nodejs /app/apps/automation-workers/package*.json ./apps/automation-workers/
+
+USER automation-workers
+
+# Health check via process check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD pgrep node || exit 1
+
+CMD ["node", "dist/index.js"]

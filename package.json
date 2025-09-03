@@ -1,0 +1,60 @@
+{
+  "name": "geofence-webhooks",
+  "version": "0.1.0",
+  "description": "Location-based automation platform connecting MQTT device tracking to business workflows",
+  "type": "module",
+  "private": true,
+  "packageManager": "npm@10.5.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "lint:fix": "turbo lint -- --fix",
+    "typecheck": "turbo typecheck",
+    "format": "turbo format",
+    "format:check": "turbo format:check",
+    "clean": "turbo clean && rm -rf node_modules .turbo",
+    "reset": "turbo clean && rm -rf node_modules .turbo && npm install",
+    "dev:api": "turbo dev --filter=@geofence/api",
+    "dev:dashboard": "turbo dev --filter=@geofence/dashboard",
+    "dev:geofence-engine": "turbo dev --filter=@geofence/geofence-engine",
+    "dev:automation-workers": "turbo dev --filter=@geofence/automation-workers",
+    "build:api": "turbo build --filter=@geofence/api",
+    "build:dashboard": "turbo build --filter=@geofence/dashboard",
+    "build:geofence-engine": "turbo build --filter=@geofence/geofence-engine",
+    "build:automation-workers": "turbo build --filter=@geofence/automation-workers",
+    "build:packages": "turbo build --filter='./packages/*'",
+    "migrate": "turbo migrate --filter=@geofence/db",
+    "migrate:create": "turbo migrate:create --filter=@geofence/db",
+    "seed:dev": "turbo seed:dev --filter=@geofence/db",
+    "backup:events": "tsx scripts/backup-events.ts",
+    "restore:events": "tsx scripts/restore-events.ts",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "turbo:daemon": "turbo daemon status",
+    "turbo:daemon:start": "turbo daemon start",
+    "turbo:daemon:stop": "turbo daemon stop",
+    "turbo:cache:clear": "turbo daemon clean"
+  },
+  "devDependencies": {
+    "@types/node": "^22.17.2",
+    "@typescript-eslint/eslint-plugin": "^8.11.0",
+    "@typescript-eslint/parser": "^8.11.0",
+    "eslint": "^9.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "prettier": "^3.3.3",
+    "tsx": "^4.19.2",
+    "turbo": "^2.5.6",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

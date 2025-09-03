@@ -1,0 +1,59 @@
+# Multi-stage build for production
+FROM node:18-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/db/package*.json ./packages/db/
+COPY apps/api/package*.json ./apps/api/
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Build the source code
+FROM base AS builder
+WORKDIR /app
+COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+
+# Build shared packages first
+RUN npm run build --workspace=@geofence/shared
+RUN npm run build --workspace=@geofence/db
+
+# Build API
+RUN npm run build --workspace=@geofence/api
+
+# Production image
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3001
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 api
+
+# Copy built application
+COPY --from=builder --chown=api:nodejs /app/apps/api/dist ./dist
+COPY --from=builder --chown=api:nodejs /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder --chown=api:nodejs /app/packages/db/dist ./packages/db/dist
+COPY --from=deps --chown=api:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=api:nodejs /app/package*.json ./
+COPY --from=builder --chown=api:nodejs /app/packages/shared/package*.json ./packages/shared/
+COPY --from=builder --chown=api:nodejs /app/packages/db/package*.json ./packages/db/
+COPY --from=builder --chown=api:nodejs /app/apps/api/package*.json ./apps/api/
+
+USER api
+
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3001/api/health || exit 1
+
+CMD ["node", "dist/server.js"]
