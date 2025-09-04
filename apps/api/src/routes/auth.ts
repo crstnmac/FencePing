@@ -90,7 +90,7 @@ async function createUserSession(userId: string, accountId: string, email: strin
     return { token, sessionId };
   } finally {
     if (shouldRelease) {
-      await client.end();
+      client.release();
     }
   }
 }
@@ -188,7 +188,7 @@ router.post('/register', validateBody(RegisterSchema), async (req, res) => {
       error: 'Internal server error'
     });
   } finally {
-    await client.end();
+    client.release();
   }
 });
 
@@ -306,7 +306,7 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
       error: 'Internal server error'
     });
   } finally {
-    await client.end();
+    client.release();
   }
 });
 
@@ -334,7 +334,7 @@ router.post('/logout', requireAuth, async (req, res) => {
       error: 'Internal server error'
     });
   } finally {
-    await client.end();
+    client.release();
   }
 });
 
@@ -397,7 +397,7 @@ router.get('/me', requireAuth, async (req, res) => {
       error: 'Internal server error'
     });
   } finally {
-    await client.end();
+    client.release();
   }
 });
 

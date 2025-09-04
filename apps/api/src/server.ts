@@ -9,6 +9,7 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { errorHandler } from './middleware/errorHandler.js';
+import { trackConnectionUsage, getConnectionPoolStatus, cleanupConnectionTracker } from './middleware/connections.js';
 import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
 import deviceGroupsRouter from './routes/deviceGroups.js';
@@ -17,6 +18,7 @@ import { eventRoutes } from './routes/events.js';
 import { integrationRoutes } from './routes/integrations.js';
 import { automationRoutes } from './routes/automations.js';
 import { settingsRoutes } from './routes/settings.js';
+import { analyticsRoutes } from './routes/analytics.js';
 import { initializeKafka, shutdownKafka } from './kafka/producer.js';
 import { connectDb, disconnectDb } from './db/client.js';
 
@@ -78,6 +80,15 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Connection tracking middleware (track all requests after this point)
+app.use(trackConnectionUsage);
+
+// Add admin endpoint for connection pool monitoring (requires admin authentication)
+app.get('/admin/connection-pool', (req, res) => {
+  // In production, add admin authentication check here
+  getConnectionPoolStatus(req, res);
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -90,6 +101,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/integrations', integrationRoutes);
 app.use('/api/automations', automationRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.use(errorHandler);
 
@@ -117,6 +129,7 @@ async function startServer() {
       console.log('🛑 Shutting down gracefully');
       server.close(async () => {
         try {
+          cleanupConnectionTracker(); // Clean up connection tracking
           await shutdownKafka();
           await disconnectDb();
           console.log('✅ Graceful shutdown completed');

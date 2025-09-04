@@ -52,12 +52,13 @@ const CreateApiKeySchema = z.object({
 
 // Get user profile
 router.get('/profile', requireAuth, async (req, res) => {
+  const client = await getDbClient();
+
   try {
-    const client = await getDbClient();
     const userId = req.user!.id;
 
     const query = `
-      SELECT 
+      SELECT
         u.id,
         u.name,
         u.email,
@@ -108,13 +109,16 @@ router.get('/profile', requireAuth, async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    client.release();
   }
 });
 
 // Update user profile
 router.put('/profile', requireAuth, validateBody(UpdateProfileSchema), async (req, res) => {
+  const client = await getDbClient();
+
   try {
-    const client = await getDbClient();
     const userId = req.user!.id;
     const { name, email, timezone, phone } = req.body;
 
@@ -134,7 +138,7 @@ router.put('/profile', requireAuth, validateBody(UpdateProfileSchema), async (re
     }
 
     const query = `
-      UPDATE users 
+      UPDATE users
       SET name = $1, email = $2, timezone = $3, phone = $4, updated_at = NOW()
       WHERE id = $5
       RETURNING id, name, email, timezone, phone, updated_at
@@ -153,13 +157,16 @@ router.put('/profile', requireAuth, validateBody(UpdateProfileSchema), async (re
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    client.release();
   }
 });
 
 // Change password
 router.post('/profile/password', requireAuth, validateBody(ChangePasswordSchema), async (req, res) => {
+  const client = await getDbClient();
+
   try {
-    const client = await getDbClient();
     const userId = req.user!.id;
     const { currentPassword, newPassword } = req.body;
 
@@ -224,6 +231,8 @@ router.post('/profile/password', requireAuth, validateBody(ChangePasswordSchema)
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    client.release();
   }
 });
 

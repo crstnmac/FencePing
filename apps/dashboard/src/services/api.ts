@@ -340,6 +340,33 @@ export interface CreateAutomationRuleRequest {
   enabled?: boolean;
 }
 
+// Analytics Types
+export interface DeviceActivity {
+  date: string;
+  online: number;
+  offline: number;
+}
+
+export interface AutomationStat {
+  name: string;
+  success: number;
+  failed: number;
+  total: number;
+}
+
+export interface AnalyticsData {
+  deviceActivity: DeviceActivity[];
+  automationStats: AutomationStat[];
+  eventsTrend: string;
+  devicesTrend: string;
+  automationsTrend: string;
+}
+
+export interface AnalyticsResponse {
+  success: boolean;
+  data: AnalyticsData;
+}
+
 // Integration Types
 export interface Integration {
   id: string;
@@ -865,6 +892,42 @@ export const automationRuleService = {
       body: JSON.stringify({ enabled }),
     });
     return response.data;
+  }
+};
+
+// Analytics service
+export const analyticsService = {
+  // Get analytics data
+  async getAnalytics(params: { range?: '24h' | '7d' | '30d' | '90d' } = {}): Promise<AnalyticsData> {
+    const searchParams = new URLSearchParams();
+    if (params.range) {
+      searchParams.append('range', params.range);
+    }
+
+    const queryString = searchParams.toString();
+    const endpoint = `/api/analytics${queryString ? `?${queryString}` : ''}`;
+
+    try {
+      const response = await apiRequest<AnalyticsResponse>(endpoint);
+      // Return empty arrays if no data, rather than undefined
+      return {
+        deviceActivity: response.data?.deviceActivity || [],
+        automationStats: response.data?.automationStats || [],
+        eventsTrend: response.data?.eventsTrend || '+0%',
+        devicesTrend: response.data?.devicesTrend || '+0%',
+        automationsTrend: response.data?.automationsTrend || '+0%'
+      };
+    } catch (error) {
+      console.warn('Analytics endpoint not available:', error);
+      // Return empty arrays instead of mock data
+      return {
+        deviceActivity: [],
+        automationStats: [],
+        eventsTrend: '+0%',
+        devicesTrend: '+0%',
+        automationsTrend: '+0%'
+      };
+    }
   }
 };
 

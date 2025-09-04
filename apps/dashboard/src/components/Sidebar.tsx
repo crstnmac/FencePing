@@ -13,11 +13,13 @@ import {
   Webhook,
   BarChart3,
   LogOut,
-  User
+  User,
+  TrendingUp
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: BarChart3 },
+  { name: 'Analytics', href: '/analytics', icon: TrendingUp },
   { name: 'Map', href: '/map', icon: Map },
   { name: 'Devices', href: '/devices', icon: Smartphone },
   { name: 'Geofences', href: '/geofences', icon: MapPin },

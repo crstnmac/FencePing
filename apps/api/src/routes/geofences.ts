@@ -104,15 +104,16 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
     });
   } finally {
     if (client) {
-      await client.end();
+      client.release();
     }
   }
 });
 
 // Create new geofence
 router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema), async (req, res) => {
+  let client;
   try {
-    const client = await getDbClient();
+    client = await getDbClient();
     let geometryWKT: string;
 
     if (req.body.type === 'circle') {
@@ -153,13 +154,18 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema)
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
 // Get specific geofence
 router.get('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
+  let client;
   try {
-    const client = await getDbClient();
+    client = await getDbClient();
     const query = `
       SELECT 
         id,
@@ -200,13 +206,18 @@ router.get('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
 // Update geofence
 router.put('/:geofenceId', requireAuth, requireAccount, validateBody(UpdateGeofenceSchema), async (req, res) => {
+  let client;
   try {
-    const client = await getDbClient();
+    client = await getDbClient();
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -273,13 +284,18 @@ router.put('/:geofenceId', requireAuth, requireAccount, validateBody(UpdateGeofe
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
 // Delete geofence
 router.delete('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
+  let client;
   try {
-    const client = await getDbClient();
+    client = await getDbClient();
     const query = 'DELETE FROM geofences WHERE id = $1 AND account_id = $2';
     const result = await client.query(query, [req.params.geofenceId, req.accountId]);
 
@@ -300,13 +316,18 @@ router.delete('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
 // Test if a location is inside the geofence
 router.post('/:geofenceId/test', requireAuth, requireAccount, validateBody(TestLocationSchema), async (req, res) => {
+  let client;
   try {
-    const client = await getDbClient();
+    client = await getDbClient();
     const query = `
       SELECT 
         ST_Contains(geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326)) as is_inside,
@@ -348,6 +369,10 @@ router.post('/:geofenceId/test', requireAuth, requireAccount, validateBody(TestL
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 

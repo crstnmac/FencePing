@@ -7,8 +7,11 @@ import { getKafkaProducer } from '../kafka/producer.js';
 
 const router = Router();
 
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 100;
+
 const EventsQuerySchema = z.object({
-  limit: z.string().pipe(z.coerce.number().min(1).max(100)).default('50'),
+  limit: z.string().pipe(z.coerce.number().min(1).max(MAX_PAGE_SIZE)).default(DEFAULT_PAGE_SIZE.toString()),
   offset: z.string().pipe(z.coerce.number().min(0)).default('0'),
   device_id: z.string().uuid().optional(),
   geofence_id: z.string().uuid().optional(),
@@ -16,6 +19,20 @@ const EventsQuerySchema = z.object({
   from_date: z.string().datetime().optional(),
   to_date: z.string().datetime().optional()
 });
+
+// Common event fields and values
+const DEFAULT_EVENT_FIELDS = {
+  LONGITUDE: 'NULL as longitude',
+  LATITUDE: 'NULL as latitude',
+  METADATA: "'{}' as metadata"
+};
+
+// Error responses
+const ERROR_RESPONSES = {
+  ORGANIZATION_NOT_FOUND: { success: false, error: 'No organization found' },
+  EVENT_NOT_FOUND: { success: false, error: 'Event not found' },
+  INTERNAL_ERROR: { success: false, error: 'Internal server error' }
+};
 
 // Get events with filtering and pagination
 router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), async (req, res) => {
@@ -31,10 +48,7 @@ router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), a
       if (orgResult.rows.length > 0) {
         accountId = orgResult.rows[0].id;
       } else {
-        return res.status(400).json({
-          success: false,
-          error: 'No organization found'
-        });
+        return res.status(400).json(ERROR_RESPONSES.ORGANIZATION_NOT_FOUND);
       }
     }
     
@@ -70,14 +84,14 @@ router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), a
     }
     
     const query = `
-      SELECT 
+      SELECT
         ge.id,
         ge.type as event_type,
         ge.device_id,
         ge.geofence_id,
-        NULL as longitude,
-        NULL as latitude,
-        '{}' as metadata,
+        ${DEFAULT_EVENT_FIELDS.LONGITUDE},
+        ${DEFAULT_EVENT_FIELDS.LATITUDE},
+        ${DEFAULT_EVENT_FIELDS.METADATA},
         ge.ts as timestamp,
         ge.ts as processed_at,
         d.name as device_name,
@@ -374,6 +388,155 @@ router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res)
     });
   } catch (error) {
     console.error('Error fetching event executions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// Get real-time events for dashboard
+router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
+  try {
+    const client = await getDbClient();
+    const limit = Math.min(parseInt(req.query.limit as string || '50'), 100);
+    
+    // For development, get the first available organization if no auth
+    let accountId = req.accountId;
+    
+    if (!accountId) {
+      const orgResult = await client.query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
+      if (orgResult.rows.length > 0) {
+        accountId = orgResult.rows[0].id;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'No organization found'
+        });
+      }
+    }
+    
+    const query = `
+      SELECT 
+        ge.id,
+        ge.type,
+        ge.device_id,
+        ge.geofence_id,
+        ge.ts as timestamp,
+        d.name as device_name,
+        d.status as device_status,
+        g.name as geofence_name,
+        ar.name as automation_name,
+        COUNT(del.id) as automation_count,
+        COUNT(CASE WHEN del.status = 'failed' THEN 1 END) as failed_automations
+      FROM geofence_events ge
+      LEFT JOIN devices d ON ge.device_id = d.id
+      LEFT JOIN geofences g ON ge.geofence_id = g.id
+      LEFT JOIN deliveries del ON del.gevent_id = ge.id
+      LEFT JOIN automation_rules ar ON del.rule_id = ar.id
+      WHERE d.account_id = $1
+      GROUP BY ge.id, ge.type, ge.device_id, ge.geofence_id, ge.ts, d.name, d.status, g.name, ar.name
+      ORDER BY ge.ts DESC
+      LIMIT $2
+    `;
+    
+    const result = await client.query(query, [accountId, limit]);
+    
+    const events = result.rows.map(row => {
+      // Map database event types to frontend event types
+      let eventType = row.type;
+      if (row.type === 'enter') eventType = 'geofence_enter';
+      if (row.type === 'exit') eventType = 'geofence_exit';
+      if (row.type === 'dwell') eventType = 'geofence_dwell';
+      
+      // Add device status events
+      if (row.device_status === 'online') {
+        return {
+          id: `device_${row.id}`,
+          type: 'device_online',
+          timestamp: row.timestamp,
+          device: row.device_id ? {
+            id: row.device_id,
+            name: row.device_name
+          } : null
+        };
+      } else if (row.device_status === 'offline') {
+        return {
+          id: `device_${row.id}`,
+          type: 'device_offline',
+          timestamp: row.timestamp,
+          device: row.device_id ? {
+            id: row.device_id,
+            name: row.device_name
+          } : null
+        };
+      }
+      
+      // Add automation events
+      const automationEvents = [];
+      if (row.automation_count > 0) {
+        if (row.failed_automations > 0) {
+          automationEvents.push({
+            id: `automation_failed_${row.id}`,
+            type: 'automation_failed',
+            timestamp: row.timestamp,
+            device: row.device_id ? {
+              id: row.device_id,
+              name: row.device_name
+            } : null,
+            geofence: row.geofence_id ? {
+              id: row.geofence_id,
+              name: row.geofence_name
+            } : null,
+            automation: {
+              id: row.automation_id,
+              name: row.automation_name
+            }
+          });
+        } else {
+          automationEvents.push({
+            id: `automation_triggered_${row.id}`,
+            type: 'automation_triggered',
+            timestamp: row.timestamp,
+            device: row.device_id ? {
+              id: row.device_id,
+              name: row.device_name
+            } : null,
+            geofence: row.geofence_id ? {
+              id: row.geofence_id,
+              name: row.geofence_name
+            } : null,
+            automation: {
+              id: row.automation_id,
+              name: row.automation_name
+            }
+          });
+        }
+      }
+      
+      // Return main geofence event
+      return {
+        id: row.id,
+        type: eventType,
+        timestamp: row.timestamp,
+        device: row.device_id ? {
+          id: row.device_id,
+          name: row.device_name
+        } : null,
+        geofence: row.geofence_id ? {
+          id: row.geofence_id,
+          name: row.geofence_name
+        } : null,
+        metadata: {
+          automation_count: row.automation_count,
+          failed_automations: row.failed_automations
+        }
+      };
+    });
+    
+    res.json(events);
+  } catch (error) {
+    console.error('Error fetching real-time events:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error'

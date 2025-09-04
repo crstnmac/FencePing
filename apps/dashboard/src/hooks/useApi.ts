@@ -8,6 +8,7 @@ import {
   automationService,
   automationRuleService,
   integrationService,
+  analyticsService,
   type Device,
   type Event,
   type Geofence,
@@ -32,7 +33,11 @@ import {
   type CreateDeviceTagRequest,
   type DeviceCertificate,
   type BulkDeviceOperationResult,
-  type DashboardStats
+  type DashboardStats,
+  type AnalyticsData,
+  type AnalyticsResponse,
+  type DeviceActivity,
+  type AutomationStat
 } from '../services/api';
 
 // Dashboard hooks
@@ -685,6 +690,15 @@ export function useToggleAutomationRule() {
         queryClient.invalidateQueries({ queryKey: ['automation-rules', 'device', data.device_id] });
       }
     },
+  });
+}
+
+// Analytics hooks
+export function useAnalytics(params: { range?: '24h' | '7d' | '30d' | '90d' } = {}) {
+  return useQuery({
+    queryKey: ['analytics', params],
+    queryFn: () => analyticsService.getAnalytics(params),
+    staleTime: 15 * 1000, // 15 seconds - refresh analytics more frequently
   });
 }
 

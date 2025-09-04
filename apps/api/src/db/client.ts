@@ -1,48 +1,115 @@
-import { Client } from 'pg';
+import { Client, PoolClient, Pool } from 'pg';
 import { database, config } from '../config/index.js';
 
-// Helper function to create a new Client with configuration
-export const createDbClient = (): Client => {
-  const client = new Client({
-    connectionString: database.DATABASE_URL,
-    // Connection timeouts - optimized for timeout handling
-    connectionTimeoutMillis: 15000, // Connection timeout
-    statement_timeout: 60000, // Increased query timeout for complex operations
-    query_timeout: 45000, // Additional query timeout
-    // Explicitly set SSL to false for local development
-    ssl: config.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  });
+// Create a connection pool for efficient connection reuse
+let pool: Pool | null = null;
 
-  return client;
+export const getPool = (): Pool => {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: database.DATABASE_URL,
+      max: 15, // Reduced max connections for better reuse
+      min: 5, // Increased min connections for better availability
+      idleTimeoutMillis: 60000, // Increased to 1 minute for better connection reuse
+      connectionTimeoutMillis: 15000, // Reduced to 15 seconds for faster failure detection
+      allowExitOnIdle: true,
+      statement_timeout: 60000, // Query timeout
+      query_timeout: 45000,
+      keepAlive: true, // Enable TCP keep-alive
+      keepAliveInitialDelayMillis: 10000, // Start keep-alive after 10 seconds
+      ssl: config.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    });
+
+    // Handle pool events with improved logging
+    pool.on('connect', (client: PoolClient) => {
+      const poolStats = pool ? {
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount
+      } : {};
+      console.log('🔗 New client connected to database', {
+        poolStats,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    pool.on('error', (err: Error, client: PoolClient) => {
+      console.error('❌ Unexpected error on idle client', err.message);
+    });
+
+    pool.on('remove', (client: PoolClient) => {
+      const poolStats = pool ? {
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount
+      } : {};
+      console.log('📤 Client released from pool', {
+        poolStats,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Add pool acquisition logging
+    pool.on('acquire', (client: PoolClient) => {
+      const poolStats = pool ? {
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount
+      } : {};
+      if (pool && pool.waitingCount > 2) { // Log when connections are waiting
+        console.log('⏳ Client acquired from pool (queue detected)', {
+          poolStats,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+  }
+
+  return pool;
 };
 
-// Get a connected client (use for transactions)
-export const getDbClient = async (retries = 2): Promise<Client> => {
-  const client = createDbClient();
+// Helper function to get a client from the pool
+export const createDbClient = async (): Promise<PoolClient> => {
+  const poolInstance = getPool();
+  return await poolInstance.connect();
+};
+
+// Get a connected client (use for transactions) with retry logic
+export const getDbClient = async (retries = 3): Promise<PoolClient> => {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      await client.connect();
+      const client = await createDbClient();
       return client;
     } catch (error) {
-      console.warn(`Failed to get database client (attempt ${attempt + 1}):`, error);
+      const err = error as Error;
+      console.error(`Failed to get database client from pool (attempt ${attempt + 1}/${retries + 1}):`, err.message);
+
+      // Only reset pool on the last attempt to avoid unnecessary pool destruction
       if (attempt === retries) {
-        console.error('All connection attempts exhausted');
-        await client.end();
-        throw error;
+        console.error('Exhausted all retry attempts, resetting pool');
+        if (pool) {
+          await pool.end();
+          pool = null;
+        }
+        throw new Error(`Unable to get database client after ${retries + 1} attempts: ${err.message}`);
       }
-      // Wait briefly before retrying
-      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+
+      // Wait before retry (exponential backoff)
+      const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+      console.log(`Retrying database connection in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  throw new Error('Unable to connect to database');
+
+  // This should never be reached, but TypeScript requires it
+  throw new Error('Unexpected end of retry loop');
 };
 
-// Execute a query using a single client connection (preferred for single queries)
+// Execute a query using a client from the pool (preferred for single queries)
 export const query = async (text: string, params?: any[]): Promise<any> => {
-  const client = createDbClient();
+  const client = await getDbClient();
   const start = Date.now();
   try {
-    await client.connect();
     const res = await client.query(text, params);
     const duration = Date.now() - start;
     console.log('Executed query', { text, duration, rows: res.rowCount });
@@ -52,7 +119,8 @@ export const query = async (text: string, params?: any[]): Promise<any> => {
     console.error('Query error', { text, duration, error: err });
     throw err;
   } finally {
-    await client.end();
+    // Return client to pool instead of ending connection
+    client.release();
   }
 };
 
@@ -88,27 +156,34 @@ export const queryWithTimeout = async (text: string, params?: any[], timeoutMs: 
 
     throw err;
   } finally {
-    await client.end();
+    // Return client to pool
+    client.release();
   }
 };
 
 export const connectDb = async (retries = 5): Promise<void> => {
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const client = createDbClient();
+    let client: PoolClient | null = null;
     try {
-      // Test the connection with a timeout
-      await client.connect();
+      client = await createDbClient();
       await client.query('SELECT 1'); // Simple health check
       console.log('Database client connection successful');
-      await client.end();
+
+      // Return client to pool (don't end permanent clients)
+      client.release();
       return;
     } catch (error) {
       console.warn(`Database connection failed (attempt ${attempt + 1}/${retries + 1}):`, error);
-      await client.end();
+
+      if (client) {
+        client.release();
+      }
+
       if (attempt === retries) {
         console.error('Failed to connect to database after all retries');
         throw new Error('Unable to establish database connection');
       }
+
       // Exponential backoff with jitter
       const delay = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 10000);
       console.log(`Retrying database connection in ${delay}ms...`);
@@ -118,6 +193,39 @@ export const connectDb = async (retries = 5): Promise<void> => {
 };
 
 export const disconnectDb = async (): Promise<void> => {
-  // No global pool to close - individual client connections are closed when done
-  console.log('Database client usage updated - no global pool to close');
+  if (pool) {
+    await pool.end();
+    pool = null;
+    console.log('Database pool closed successfully');
+  }
+};
+
+// Health check function for database connectivity
+export const healthCheckDb = async (): Promise<{ healthy: boolean; message: string; latency?: number }> => {
+  const startTime = Date.now();
+  try {
+    const poolInstance = getPool();
+    const client = await poolInstance.connect();
+
+    // Simple query to test connectivity
+    await client.query('SELECT 1 as health_check');
+    client.release();
+
+    const latency = Date.now() - startTime;
+    return {
+      healthy: true,
+      message: 'Database connection is healthy',
+      latency
+    };
+  } catch (error) {
+    const latency = Date.now() - startTime;
+    const err = error as Error;
+    console.error('Database health check failed:', err.message);
+
+    return {
+      healthy: false,
+      message: `Database health check failed: ${err.message}`,
+      latency
+    };
+  }
 };

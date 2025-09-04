@@ -200,15 +200,15 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
 
   try {
     await client.query('BEGIN');
-    
+
     const createdDevices = [];
     const errors = [];
-    
+
     for (let i = 0; i < req.body.devices.length; i++) {
       try {
         const deviceData = req.body.devices[i];
         const deviceToken = randomBytes(32).toString('hex');
-        
+
         const result = await client.query(
           `INSERT INTO devices (name, meta, account_id, device_key)
            VALUES ($1, $2, $3, $4)
@@ -220,7 +220,7 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
             deviceToken
           ]
         );
-        
+
         createdDevices.push(result.rows[0]);
       } catch (error) {
         errors.push({
@@ -230,7 +230,8 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
         });
       }
     }
-    
+
+    // Only rollback if all devices failed (maintain consistency)
     if (errors.length > 0 && createdDevices.length === 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({
@@ -239,9 +240,10 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
         errors
       });
     }
-    
+
+    // Commit if at least one device was created successfully
     await client.query('COMMIT');
-    
+
     res.status(201).json({
       success: true,
       data: {
@@ -255,12 +257,18 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
       }
     });
   } catch (error) {
-    try { await client.query('ROLLBACK'); } catch {}
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error rolling back transaction:', rollbackError);
+    }
     console.error('Error bulk creating devices:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    client.release();
   }
 });
 
@@ -270,56 +278,56 @@ router.put('/bulk', requireAuth, validateBody(BulkUpdateDeviceSchema), async (re
 
   try {
     await client.query('BEGIN');
-    
+
     const updates = [];
     const values = [];
     let paramCount = 1;
-    
+
     if (req.body.updates.name !== undefined) {
       updates.push(`name = $${paramCount++}`);
       values.push(req.body.updates.name);
     }
-    
+
     if (req.body.updates.meta !== undefined) {
       updates.push(`meta = $${paramCount++}`);
       values.push(req.body.updates.meta);
     }
-    
+
     if (req.body.updates.device_type !== undefined) {
       updates.push(`device_type = $${paramCount++}`);
       values.push(req.body.updates.device_type);
     }
-    
+
     if (req.body.updates.is_active !== undefined) {
       updates.push(`is_active = $${paramCount++}`);
       values.push(req.body.updates.is_active);
     }
-    
+
     if (updates.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'No updates provided'
       });
     }
-    
+
     updates.push(`updated_at = NOW()`);
-    
+
     // Create placeholders for device IDs
     const devicePlaceholders = req.body.deviceIds.map((_: any, index: number) => `$${paramCount + index}`).join(',');
     values.push(...req.body.deviceIds);
     values.push(req.accountId);
-    
+
     const queryText = `
       UPDATE devices
       SET ${updates.join(', ')}
       WHERE id IN (${devicePlaceholders}) AND account_id = $${paramCount + req.body.deviceIds.length}
       RETURNING id, name, meta, updated_at
     `;
-    
+
     const result = await client.query(queryText, values);
-    
+
     await client.query('COMMIT');
-    
+
     res.json({
       success: true,
       data: {
@@ -331,12 +339,18 @@ router.put('/bulk', requireAuth, validateBody(BulkUpdateDeviceSchema), async (re
       }
     });
   } catch (error) {
-    try { await client.query('ROLLBACK'); } catch {}
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error rolling back transaction:', rollbackError);
+    }
     console.error('Error bulk updating devices:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    client.release();
   }
 });
 
@@ -346,21 +360,21 @@ router.delete('/bulk', requireAuth, validateBody(BulkDeleteDeviceSchema), async 
 
   try {
     await client.query('BEGIN');
-    
+
     // Create placeholders for device IDs
     const devicePlaceholders = req.body.deviceIds.map((_: any, index: number) => `$${index + 1}`).join(',');
     const values = [...req.body.deviceIds, req.accountId];
-    
+
     const queryText = `
-      DELETE FROM devices 
+      DELETE FROM devices
       WHERE id IN (${devicePlaceholders}) AND account_id = $${req.body.deviceIds.length + 1}
       RETURNING id, name
     `;
-    
+
     const result = await client.query(queryText, values);
-    
+
     await client.query('COMMIT');
-    
+
     res.json({
       success: true,
       data: {
@@ -372,12 +386,18 @@ router.delete('/bulk', requireAuth, validateBody(BulkDeleteDeviceSchema), async 
       }
     });
   } catch (error) {
-    try { await client.query('ROLLBACK'); } catch {}
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Error rolling back transaction:', rollbackError);
+    }
     console.error('Error bulk deleting devices:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error'
     });
+  } finally {
+    client.release();
   }
 });
 

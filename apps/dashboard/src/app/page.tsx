@@ -1,6 +1,7 @@
 'use client';
 
 import { Header } from '../components/Header';
+import { RealTimeMonitor } from '../components/RealTimeMonitor';
 import { useDashboardStats, useRecentEvents } from '../hooks/useApi';
 import { 
   Activity, 
@@ -8,7 +9,9 @@ import {
   Smartphone, 
   Zap,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  ArrowUpRight,
+  BarChart3
 } from 'lucide-react';
 
 export default function HomePage() {
