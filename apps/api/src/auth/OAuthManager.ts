@@ -67,13 +67,13 @@ export class OAuthManager {
     }
   }
 
-  generateAuthUrl(provider: string, organizationId: string, integrationId?: string): string {
+  generateAuthUrl(provider: string, accountId: string, integrationId?: string): string {
     const config = this.configs.get(provider);
     if (!config) {
       throw new Error(`OAuth provider '${provider}' not configured`);
     }
 
-    const state = this.generateState(organizationId, provider, integrationId);
+    const state = this.generateState(accountId, provider, integrationId);
     
     const params = new URLSearchParams({
       client_id: config.clientId,
@@ -92,7 +92,7 @@ export class OAuthManager {
     provider: string, 
     code: string, 
     state: string
-  ): Promise<{ organizationId: string; integrationId?: string; tokens: OAuthTokens }> {
+  ): Promise<{ accountId: string; integrationId?: string; tokens: OAuthTokens }> {
     const config = this.configs.get(provider);
     if (!config) {
       throw new Error(`OAuth provider '${provider}' not configured`);
@@ -105,16 +105,16 @@ export class OAuthManager {
     const tokens = await this.exchangeCodeForTokens(provider, code, config);
     
     // Store tokens in database
-    await this.storeTokens(stateData.organizationId, provider, tokens, stateData.integrationId);
+    await this.storeTokens(stateData.accountId, provider, tokens, stateData.integrationId);
 
     return {
-      organizationId: stateData.organizationId,
+      accountId: stateData.accountId,
       integrationId: stateData.integrationId,
       tokens
     };
   }
 
-  async refreshTokens(provider: string, organizationId: string): Promise<OAuthTokens> {
+  async refreshTokens(provider: string, accountId: string): Promise<OAuthTokens> {
     const config = this.configs.get(provider);
     if (!config) {
       throw new Error(`OAuth provider '${provider}' not configured`);
@@ -132,7 +132,7 @@ export class OAuthManager {
       LIMIT 1
     `;
 
-    const tokenResult = await client.query(tokenQuery, [organizationId, provider]);
+    const tokenResult = await client.query(tokenQuery, [accountId, provider]);
     
     if (tokenResult.rows.length === 0) {
       throw new Error(`No integration found for ${provider}`);
@@ -165,14 +165,14 @@ export class OAuthManager {
     const newTokens = await this.refreshAccessToken(provider, refreshToken, config);
     
     // Store updated tokens
-    await this.storeTokens(organizationId, provider, newTokens, automationId);
+    await this.storeTokens(accountId, provider, newTokens, automationId);
 
     return newTokens;
   }
 
-  private generateState(organizationId: string, provider: string, integrationId?: string): string {
+  private generateState(accountId: string, provider: string, integrationId?: string): string {
     const data = {
-      organizationId,
+      accountId,
       provider,
       integrationId,
       timestamp: Date.now(),
@@ -183,7 +183,7 @@ export class OAuthManager {
     return Buffer.from(stateString).toString('base64url');
   }
 
-  private verifyState(state: string): { organizationId: string; provider: string; integrationId?: string } {
+  private verifyState(state: string): { accountId: string; provider: string; integrationId?: string } {
     try {
       const stateString = Buffer.from(state, 'base64url').toString('utf-8');
       const data = JSON.parse(stateString);
@@ -195,7 +195,7 @@ export class OAuthManager {
       }
 
       return {
-        organizationId: data.organizationId,
+        accountId: data.accountId,
         provider: data.provider,
         integrationId: data.integrationId
       };
@@ -274,7 +274,7 @@ export class OAuthManager {
   }
 
   private async storeTokens(
-    organizationId: string,
+    accountId: string,
     provider: string,
     tokens: OAuthTokens,
     integrationId?: string
@@ -303,7 +303,7 @@ export class OAuthManager {
       // Update existing automation
       await client.query(
         'UPDATE automations SET credentials = $1, security_metadata = $2, updated_at = NOW() WHERE id = $3 AND account_id = $4',
-        [encryptedCredentials, JSON.stringify(securityMetadata), integrationId, organizationId]
+        [encryptedCredentials, JSON.stringify(securityMetadata), integrationId, accountId]
       );
     } else {
       // Create new automation or update existing one
@@ -320,20 +320,20 @@ export class OAuthManager {
       await client.query(upsertQuery, [
         `${provider.charAt(0).toUpperCase() + provider.slice(1)} Integration`,
         provider,
-        organizationId,
+        accountId,
         encryptedCredentials,
         JSON.stringify(securityMetadata)
       ]);
     }
   }
 
-  async revokeTokens(provider: string, organizationId: string): Promise<void> {
+  async revokeTokens(provider: string, accountId: string): Promise<void> {
     const client = await getDbClient();
     
     // First, get the current credentials so we can revoke them with the provider
     const result = await client.query(
       'SELECT credentials, security_metadata FROM automations WHERE account_id = $1 AND kind = $2',
-      [organizationId, provider]
+      [accountId, provider]
     );
 
     if (result.rows.length > 0 && result.rows[0].credentials) {
@@ -369,7 +369,7 @@ export class OAuthManager {
     // Remove credentials from database and mark as inactive
     await client.query(
       'UPDATE automations SET credentials = NULL, security_metadata = \'{"revoked": true, "revoked_at": "' + new Date().toISOString() + '"}\', enabled = false WHERE account_id = $1 AND kind = $2',
-      [organizationId, provider]
+      [accountId, provider]
     );
   }
 

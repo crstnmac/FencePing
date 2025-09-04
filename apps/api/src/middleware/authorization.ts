@@ -107,17 +107,17 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
 /**
  * Get user's role and permissions for an organization
  */
-async function getUserPermissions(userId: string, organizationId: string): Promise<{ role: Role; permissions: Permission[] }> {
+async function getUserPermissions(userId: string, accountId: string): Promise<{ role: Role; permissions: Permission[] }> {
   const client = await getDbClient();
 
   // Check if user is the organization owner
   const ownerQuery = `
     SELECT 'owner' as role
-    FROM organizations 
+    FROM accounts 
     WHERE id = $1 AND owner_id = $2
   `;
 
-  const ownerResult = await client.query(ownerQuery, [organizationId, userId]);
+  const ownerResult = await client.query(ownerQuery, [accountId, userId]);
 
   if (ownerResult.rows.length > 0) {
     return {
@@ -138,14 +138,14 @@ async function getUserPermissions(userId: string, organizationId: string): Promi
 export function requirePermission(...requiredPermissions: Permission[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.user?.id || !req.organizationId) {
+      if (!req.user?.id || !req.accountId) {
         return res.status(401).json({
           success: false,
           error: 'Authentication required'
         });
       }
 
-      const { permissions } = await getUserPermissions(req.user.id, req.organizationId);
+      const { permissions } = await getUserPermissions(req.user.id, req.accountId);
 
       // Check if user has admin:all permission (bypass all checks)
       if (permissions.includes(Permission.ADMIN_ALL)) {
@@ -195,7 +195,7 @@ export function requireResourceOwnership(resourceType: 'device' | 'geofence' | '
         });
       }
 
-      if (!req.organizationId) {
+      if (!req.accountId) {
         return res.status(401).json({
           success: false,
           error: 'Organization context required'
@@ -222,8 +222,8 @@ export function requireResourceOwnership(resourceType: 'device' | 'geofence' | '
           throw new Error('Invalid resource type');
       }
 
-      const query = `SELECT id FROM ${tableName} WHERE id = $1 AND organization_id = $2`;
-      const result = await client.query(query, [resourceId, req.organizationId]);
+      const query = `SELECT id FROM ${tableName} WHERE id = $1 AND account_id = $2`;
+      const result = await client.query(query, [resourceId, req.accountId]);
 
       if (result.rows.length === 0) {
         return res.status(404).json({
@@ -246,9 +246,9 @@ export function requireResourceOwnership(resourceType: 'device' | 'geofence' | '
 /**
  * Check if user can access organization data
  */
-export async function canAccessOrganization(userId: string, organizationId: string): Promise<boolean> {
+export async function canAccessOrganization(userId: string, accountId: string): Promise<boolean> {
   try {
-    await getUserPermissions(userId, organizationId);
+    await getUserPermissions(userId, accountId);
     return true;
   } catch (error) {
     return false;

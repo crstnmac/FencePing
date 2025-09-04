@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getDbClient } from '../db/client.js';
-import { validateBody, requireOrganization } from '../middleware/validation.js';
+import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { generateApiKey, hashData } from '../utils/encryption.js';
 
@@ -20,10 +20,10 @@ const UpdateApiKeySchema = z.object({
 });
 
 // List API keys for organization
-router.get('/', requireAuth, requireOrganization, async (req, res) => {
+router.get('/', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
     
     const query = `
       SELECT 
@@ -36,11 +36,11 @@ router.get('/', requireAuth, requireOrganization, async (req, res) => {
         created_at,
         updated_at
       FROM api_keys 
-      WHERE organization_id = $1 
+      WHERE account_id = $1 
       ORDER BY created_at DESC
     `;
     
-    const result = await client.query(query, [organizationId]);
+    const result = await client.query(query, [accountId]);
     
     res.json({
       success: true,
@@ -63,10 +63,10 @@ router.get('/', requireAuth, requireOrganization, async (req, res) => {
 
 // Create new API key
 // Create new API key
-router.post('/', requireAuth, requireOrganization, validateBody(CreateApiKeySchema), async (req, res) => {
+router.post('/', requireAuth, requireAccount, validateBody(CreateApiKeySchema), async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
     const { name, scopes, expires_in_days } = req.body;
     
     // Generate API key
@@ -108,14 +108,14 @@ router.post('/', requireAuth, requireOrganization, validateBody(CreateApiKeySche
     }
     
     const query = `
-      INSERT INTO api_keys (name, organization_id, key_hash, scopes, expires_at)
+      INSERT INTO api_keys (name, account_id, key_hash, scopes, expires_at)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, name, scopes, expires_at, created_at
     `;
     
     const result = await client.query(query, [
       name,
-      organizationId,
+      accountId,
       hash,
       scopes,
       expiresAt
@@ -144,10 +144,10 @@ router.post('/', requireAuth, requireOrganization, validateBody(CreateApiKeySche
 
 // Update API key
 // Update API key
-router.patch('/:keyId', requireAuth, requireOrganization, validateBody(UpdateApiKeySchema), async (req, res) => {
+router.patch('/:keyId', requireAuth, requireAccount, validateBody(UpdateApiKeySchema), async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
     const { keyId } = req.params;
     const updates = req.body;
     
@@ -192,12 +192,12 @@ router.patch('/:keyId', requireAuth, requireOrganization, validateBody(UpdateApi
     }
     
     updateFields.push('updated_at = NOW()');
-    values.push(keyId, organizationId);
+    values.push(keyId, accountId);
     
     const query = `
       UPDATE api_keys 
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramCount++} AND organization_id = $${paramCount}
+      WHERE id = $${paramCount++} AND account_id = $${paramCount}
       RETURNING id, name, scopes, is_active, updated_at
     `;
     
@@ -227,19 +227,19 @@ router.patch('/:keyId', requireAuth, requireOrganization, validateBody(UpdateApi
 
 // Delete API key
 // Delete API key
-router.delete('/:keyId', requireAuth, requireOrganization, async (req, res) => {
+router.delete('/:keyId', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
     const { keyId } = req.params;
     
     const query = `
       DELETE FROM api_keys 
-      WHERE id = $1 AND organization_id = $2
+      WHERE id = $1 AND account_id = $2
       RETURNING id, name
     `;
     
-    const result = await client.query(query, [keyId, organizationId]);
+    const result = await client.query(query, [keyId, accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -263,10 +263,10 @@ router.delete('/:keyId', requireAuth, requireOrganization, async (req, res) => {
 
 // Get API key usage statistics
 // Get API key usage statistics
-router.get('/:keyId/usage', requireAuth, requireOrganization, async (req, res) => {
+router.get('/:keyId/usage', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
     const { keyId } = req.params;
     
     const query = `
@@ -279,11 +279,11 @@ router.get('/:keyId/usage', requireAuth, requireOrganization, async (req, res) =
         COUNT(e.id) as total_requests
       FROM api_keys ak
       LEFT JOIN events e ON e.metadata->>'api_key_id' = ak.id
-      WHERE ak.id = $1 AND ak.organization_id = $2
+      WHERE ak.id = $1 AND ak.account_id = $2
       GROUP BY ak.id, ak.name, ak.last_used_at, ak.created_at
     `;
     
-    const result = await client.query(query, [keyId, organizationId]);
+    const result = await client.query(query, [keyId, accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({

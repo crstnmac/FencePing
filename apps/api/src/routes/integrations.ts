@@ -2,7 +2,7 @@ import { INTEGRATION_TYPES } from '@geofence/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { getDbClient } from '../db/client.js';
-import { validateBody, requireOrganization } from '../middleware/validation.js';
+import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -96,30 +96,30 @@ const TestIntegrationSchema = z.object({
 
 // Get all integrations for organization
 
-router.get('/', requireAuth, requireOrganization, async (req, res) => {
+router.get('/', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
     const query = `
       SELECT 
         id,
         name,
-        type,
+        kind as type,
         config,
-        is_active,
+        enabled as is_active,
         created_at,
-        updated_at
-      FROM integrations 
-      WHERE organization_id = $1
+        created_at as updated_at
+      FROM automations 
+      WHERE account_id = $1
       ORDER BY created_at DESC
     `;
     
     // For development, get the first available organization if no auth
-    let organizationId = req.organizationId;
+    let accountId = req.accountId;
     
-    if (!organizationId) {
-      const orgResult = await client.query('SELECT id FROM organizations ORDER BY created_at LIMIT 1');
+    if (!accountId) {
+      const orgResult = await client.query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (orgResult.rows.length > 0) {
-        organizationId = orgResult.rows[0].id;
+        accountId = orgResult.rows[0].id;
       } else {
         return res.status(400).json({
           success: false,
@@ -128,7 +128,7 @@ router.get('/', requireAuth, requireOrganization, async (req, res) => {
       }
     }
     
-    const result = await client.query(query, [organizationId]);
+    const result = await client.query(query, [accountId]);
     
     // Don't return sensitive credentials in list view
     const integrations = result.rows.map(integration => ({
@@ -153,12 +153,12 @@ router.get('/', requireAuth, requireOrganization, async (req, res) => {
 
 // Create new integration
 
-router.post('/', requireAuth, requireOrganization, validateBody(CreateIntegrationSchema), async (req, res) => {
+router.post('/', requireAuth, requireAccount, validateBody(CreateIntegrationSchema), async (req, res) => {
   try {
     const client = await getDbClient();
     
     const query = `
-      INSERT INTO integrations (name, type, organization_id, config, credentials)
+      INSERT INTO integrations (name, type, account_id, config, credentials)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, name, type, config, is_active, created_at
     `;
@@ -166,7 +166,7 @@ router.post('/', requireAuth, requireOrganization, validateBody(CreateIntegratio
     const result = await client.query(query, [
       req.body.name,
       req.body.type,
-      req.organizationId,
+      req.accountId,
       JSON.stringify(req.body.config),
       JSON.stringify(req.body.credentials)
     ]);
@@ -192,7 +192,7 @@ router.post('/', requireAuth, requireOrganization, validateBody(CreateIntegratio
 
 // Get specific integration
 
-router.get('/:integrationId', requireAuth, requireOrganization, async (req, res) => {
+router.get('/:integrationId', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
     const query = `
@@ -205,10 +205,10 @@ router.get('/:integrationId', requireAuth, requireOrganization, async (req, res)
         created_at,
         updated_at
       FROM integrations 
-      WHERE id = $1 AND organization_id = $2
+      WHERE id = $1 AND account_id = $2
     `;
     
-    const result = await client.query(query, [req.params.integrationId, req.organizationId]);
+    const result = await client.query(query, [req.params.integrationId, req.accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -238,7 +238,7 @@ router.get('/:integrationId', requireAuth, requireOrganization, async (req, res)
 
 // Update integration
 
-router.put('/:integrationId', requireAuth, requireOrganization, validateBody(UpdateIntegrationSchema), async (req, res) => {
+router.put('/:integrationId', requireAuth, requireAccount, validateBody(UpdateIntegrationSchema), async (req, res) => {
   try {
     const client = await getDbClient();
     const updates = [];
@@ -273,12 +273,12 @@ router.put('/:integrationId', requireAuth, requireOrganization, validateBody(Upd
     }
     
     updates.push(`updated_at = NOW()`);
-    values.push(req.params.integrationId, req.organizationId);
+    values.push(req.params.integrationId, req.accountId);
     
     const query = `
       UPDATE integrations 
       SET ${updates.join(', ')}
-      WHERE id = $${paramCount++} AND organization_id = $${paramCount}
+      WHERE id = $${paramCount++} AND account_id = $${paramCount}
       RETURNING id, name, type, config, is_active, updated_at
     `;
     
@@ -312,7 +312,7 @@ router.put('/:integrationId', requireAuth, requireOrganization, validateBody(Upd
 
 // Delete integration
 // Delete integration
-router.delete('/:integrationId', requireAuth, requireOrganization, async (req, res) => {
+router.delete('/:integrationId', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
     
@@ -320,9 +320,9 @@ router.delete('/:integrationId', requireAuth, requireOrganization, async (req, r
     const usageQuery = `
       SELECT COUNT(*) as rule_count 
       FROM automation_rules 
-      WHERE integration_id = $1 AND organization_id = $2
+      WHERE integration_id = $1 AND account_id = $2
     `;
-    const usageResult = await client.query(usageQuery, [req.params.integrationId, req.organizationId]);
+    const usageResult = await client.query(usageQuery, [req.params.integrationId, req.accountId]);
     const ruleCount = parseInt(usageResult.rows[0]?.rule_count || '0');
     
     if (ruleCount > 0) {
@@ -335,8 +335,8 @@ router.delete('/:integrationId', requireAuth, requireOrganization, async (req, r
       });
     }
     
-    const query = 'DELETE FROM integrations WHERE id = $1 AND organization_id = $2';
-    const result = await client.query(query, [req.params.integrationId, req.organizationId]);
+    const query = 'DELETE FROM integrations WHERE id = $1 AND account_id = $2';
+    const result = await client.query(query, [req.params.integrationId, req.accountId]);
     
     if (result.rowCount === 0) {
       return res.status(404).json({
@@ -359,7 +359,7 @@ router.delete('/:integrationId', requireAuth, requireOrganization, async (req, r
 });
 
 // Test integration
-router.post('/:integrationId/test', requireAuth, requireOrganization, validateBody(TestIntegrationSchema), async (req, res) => {
+router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(TestIntegrationSchema), async (req, res) => {
   try {
     const client = await getDbClient();
     
@@ -373,10 +373,10 @@ router.post('/:integrationId/test', requireAuth, requireOrganization, validateBo
         credentials,
         is_active
       FROM integrations 
-      WHERE id = $1 AND organization_id = $2
+      WHERE id = $1 AND account_id = $2
     `;
     
-    const result = await client.query(query, [req.params.integrationId, req.organizationId]);
+    const result = await client.query(query, [req.params.integrationId, req.accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({

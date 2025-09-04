@@ -111,7 +111,7 @@ class DatabaseRestore {
   private getRestoreOrder(tables: string[]): string[] {
     // Define restore order to respect foreign key constraints
     const orderedTables = [
-      'organizations',
+      'accounts',
       'users',
       'devices', 
       'geofences',
@@ -147,8 +147,8 @@ class DatabaseRestore {
     }
 
     // Filter by organization if specified
-    if (this.options.organizationId && this.hasOrganizationColumn(table)) {
-      data = data.filter(row => row.organization_id === this.options.organizationId);
+    if (this.options.organizationId && this.hasAccountColumn(table)) {
+      data = data.filter(row => row.account_id === this.options.organizationId);
       console.log(`  🔍 Filtered to organization: ${data.length} rows`);
     }
 
@@ -197,7 +197,7 @@ class DatabaseRestore {
     console.log(`  ✅ Restored table ${table}: ${insertedCount} inserted, ${updatedCount} updated, ${skippedCount} skipped`);
   }
 
-  private hasOrganizationColumn(table: string): boolean {
+  private hasAccountColumn(table: string): boolean {
     const orgTables = ['users', 'devices', 'geofences', 'integrations', 'automations', 'events', 'automation_executions'];
     return orgTables.includes(table);
   }
@@ -207,7 +207,7 @@ class DatabaseRestore {
     
     const sequences = [
       'users_id_seq',
-      'organizations_id_seq', 
+      'accounts_id_seq', 
       'devices_id_seq',
       'geofences_id_seq',
       'integrations_id_seq',

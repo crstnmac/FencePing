@@ -22,7 +22,7 @@ export interface User {
   last_login_at?: string;
 }
 
-export interface Organization {
+export interface Account {
   id: string;
   name: string;
   role: string;
@@ -33,7 +33,7 @@ export interface AuthResponse {
   success: boolean;
   data: {
     user: User;
-    organization: Organization;
+    organization: Account;
     token: string;
     expires_in: string;
   };
@@ -44,7 +44,7 @@ export interface AuthMeResponse {
   success: boolean;
   data: {
     user: User;
-    organization: Organization;
+    organization: Account;
   };
   error?: string;
 }

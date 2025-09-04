@@ -43,7 +43,7 @@ export const validateQuery = (schema: ZodSchema) => {
   };
 };
 
-export const requireOrganization = (req: Request, res: Response, next: NextFunction) => {
+export const requireAccount = (req: Request, res: Response, next: NextFunction) => {
   // Account ID must come from authenticated user (set by auth middleware)
   if (req.accountId && req.user) {
     return next();
@@ -52,7 +52,7 @@ export const requireOrganization = (req: Request, res: Response, next: NextFunct
   // No authenticated user or account ID
   return res.status(401).json({
     success: false,
-    error: 'Authentication required. Organization access denied.'
+    error: 'Authentication required. Account access denied.'
   });
 };
 

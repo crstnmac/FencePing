@@ -2,14 +2,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   dashboardService,
   deviceService,
+  deviceGroupService,
   eventService,
   geofenceService,
   automationService,
+  automationRuleService,
   integrationService,
   type Device,
   type Event,
   type Geofence,
   type Automation,
+  type AutomationRule,
+  type CreateAutomationRuleRequest,
   type Integration,
   type CreateDeviceRequest,
   type UpdateDeviceRequest,
@@ -18,7 +22,17 @@ import {
   type DeviceTokenResponse,
   type DeviceStatus,
   type DeviceUser,
-  type DeviceShareRequest
+  type DeviceShareRequest,
+  type DeviceGroup,
+  type CreateDeviceGroupRequest,
+  type DeviceCommand,
+  type SendDeviceCommandRequest,
+  type DeviceLocationHistoryResponse,
+  type DeviceTag,
+  type CreateDeviceTagRequest,
+  type DeviceCertificate,
+  type BulkDeviceOperationResult,
+  type DashboardStats
 } from '../services/api';
 
 // Dashboard hooks
@@ -372,3 +386,327 @@ export function useCleanupPairingRequests() {
     mutationFn: () => deviceService.cleanupPairingRequests(),
   });
 }
+
+// Device Location History hooks
+export function useDeviceLocationHistory(
+  deviceId: string, 
+  params: { page?: number; limit?: number; start_date?: string; end_date?: string } = {},
+  enabled = true
+) {
+  return useQuery({
+    queryKey: ['device', 'location-history', deviceId, params],
+    queryFn: () => deviceService.getDeviceLocationHistory(deviceId, params),
+    enabled: !!deviceId && enabled,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+// Device Commands hooks
+export function useSendDeviceCommand() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ deviceId, command }: { deviceId: string; command: SendDeviceCommandRequest }) =>
+      deviceService.sendDeviceCommand(deviceId, command),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['device', 'commands', variables.deviceId] });
+    },
+  });
+}
+
+export function useDeviceCommand(deviceId: string, commandId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['device', 'command', deviceId, commandId],
+    queryFn: () => deviceService.getDeviceCommand(deviceId, commandId),
+    enabled: !!deviceId && !!commandId && enabled,
+    staleTime: 10 * 1000, // 10 seconds
+    refetchInterval: 5 * 1000, // Poll every 5 seconds for command status
+  });
+}
+
+export function useDeviceCommands(
+  deviceId: string, 
+  params: { page?: number; limit?: number } = {},
+  enabled = true
+) {
+  return useQuery({
+    queryKey: ['device', 'commands', deviceId, params],
+    queryFn: () => deviceService.getDeviceCommands(deviceId, params),
+    enabled: !!deviceId && enabled,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+// Device Tags hooks
+export function useDeviceTags(deviceId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['device', 'tags', deviceId],
+    queryFn: () => deviceService.getDeviceTags(deviceId),
+    enabled: !!deviceId && enabled,
+    staleTime: 60 * 1000, // 1 minute
+  });
+}
+
+export function useAddDeviceTag() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ deviceId, tag }: { deviceId: string; tag: CreateDeviceTagRequest }) =>
+      deviceService.addDeviceTag(deviceId, tag),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['device', 'tags', variables.deviceId] });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    },
+  });
+}
+
+export function useRemoveDeviceTag() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ deviceId, tag }: { deviceId: string; tag: string }) =>
+      deviceService.removeDeviceTag(deviceId, tag),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['device', 'tags', variables.deviceId] });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    },
+  });
+}
+
+// Device Certificates hooks
+export function useDeviceCertificates(deviceId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['device', 'certificates', deviceId],
+    queryFn: () => deviceService.getDeviceCertificates(deviceId),
+    enabled: !!deviceId && enabled,
+    staleTime: 60 * 1000, // 1 minute
+  });
+}
+
+export function useGenerateDeviceCertificate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (deviceId: string) => deviceService.generateDeviceCertificate(deviceId),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['device', 'certificates', variables] });
+    },
+  });
+}
+
+export function useRevokeDeviceCertificate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ deviceId, certificateId, reason }: { deviceId: string; certificateId: string; reason?: string }) =>
+      deviceService.revokeDeviceCertificate(deviceId, certificateId, reason),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['device', 'certificates', variables.deviceId] });
+    },
+  });
+}
+
+// Bulk Operations hooks
+export function useBulkCreateDevices() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (devices: CreateDeviceRequest[]) => deviceService.bulkCreateDevices(devices),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useBulkUpdateDevices() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ deviceIds, updates }: { deviceIds: string[]; updates: UpdateDeviceRequest }) =>
+      deviceService.bulkUpdateDevices(deviceIds, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useBulkDeleteDevices() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (deviceIds: string[]) => deviceService.bulkDeleteDevices(deviceIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+// Device Groups hooks
+export function useDeviceGroups() {
+  return useQuery({
+    queryKey: ['device-groups'],
+    queryFn: deviceGroupService.getDeviceGroups,
+    staleTime: 60 * 1000, // 1 minute
+  });
+}
+
+export function useCreateDeviceGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (group: CreateDeviceGroupRequest) => deviceGroupService.createDeviceGroup(group),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['device-groups'] });
+    },
+  });
+}
+
+export function useUpdateDeviceGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ groupId, updates }: { groupId: string; updates: Partial<CreateDeviceGroupRequest> }) =>
+      deviceGroupService.updateDeviceGroup(groupId, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['device-groups'] });
+    },
+  });
+}
+
+export function useDeleteDeviceGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (groupId: string) => deviceGroupService.deleteDeviceGroup(groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['device-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    },
+  });
+}
+
+export function useAssignDeviceToGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ deviceId, groupId }: { deviceId: string; groupId: string }) =>
+      deviceGroupService.assignDeviceToGroup(deviceId, groupId),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['devices', variables.deviceId] });
+      queryClient.invalidateQueries({ queryKey: ['device-groups'] });
+    },
+  });
+}
+
+// Automation Rules hooks
+export function useAutomationRules() {
+  return useQuery({
+    queryKey: ['automation-rules'],
+    queryFn: automationRuleService.getAutomationRules,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+export function useAutomationRulesForGeofence(geofenceId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['automation-rules', 'geofence', geofenceId],
+    queryFn: () => automationRuleService.getAutomationRulesForGeofence(geofenceId),
+    enabled: !!geofenceId && enabled,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+export function useAutomationRulesForDevice(deviceId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['automation-rules', 'device', deviceId],
+    queryFn: () => automationRuleService.getAutomationRulesForDevice(deviceId),
+    enabled: !!deviceId && enabled,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+export function useCreateAutomationRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (rule: CreateAutomationRuleRequest) => 
+      automationRuleService.createAutomationRule(rule),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['automation-rules', 'geofence', data.geofence_id] });
+      if (data.device_id) {
+        queryClient.invalidateQueries({ queryKey: ['automation-rules', 'device', data.device_id] });
+      }
+    },
+  });
+}
+
+export function useUpdateAutomationRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ ruleId, updates }: { ruleId: string; updates: Partial<CreateAutomationRuleRequest> }) =>
+      automationRuleService.updateAutomationRule(ruleId, updates),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['automation-rules', 'geofence', data.geofence_id] });
+      if (data.device_id) {
+        queryClient.invalidateQueries({ queryKey: ['automation-rules', 'device', data.device_id] });
+      }
+    },
+  });
+}
+
+export function useDeleteAutomationRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ruleId: string) => automationRuleService.deleteAutomationRule(ruleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
+    },
+  });
+}
+
+export function useToggleAutomationRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ ruleId, enabled }: { ruleId: string; enabled: boolean }) =>
+      automationRuleService.toggleAutomationRule(ruleId, enabled),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['automation-rules', 'geofence', data.geofence_id] });
+      if (data.device_id) {
+        queryClient.invalidateQueries({ queryKey: ['automation-rules', 'device', data.device_id] });
+      }
+    },
+  });
+}
+
+
+// Re-export types for easy access
+export type { 
+  Device, 
+  Event, 
+  Geofence, 
+  Automation, 
+  AutomationRule, 
+  CreateAutomationRuleRequest,
+  Integration,
+  CreateDeviceRequest,
+  UpdateDeviceRequest,
+  PairingCodeResponse,
+  PairingRequest,
+  DeviceTokenResponse,
+  DeviceStatus,
+  DeviceUser,
+  DeviceShareRequest,
+  DeviceGroup,
+  CreateDeviceGroupRequest,
+  DashboardStats
+};

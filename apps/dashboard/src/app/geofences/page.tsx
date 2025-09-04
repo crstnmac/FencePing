@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Header } from '../../components/Header';
 import { Map } from '../../components/Map';
-import { useGeofences, useDeleteGeofence } from '../../hooks/useApi';
+import { AutomationRuleModal } from '../../components/AutomationRuleModal';
+import { useGeofences, useDeleteGeofence, useAutomationRulesForGeofence, useDeleteAutomationRule, useToggleAutomationRule, useDevices } from '../../hooks/useApi';
 import {
   Plus,
   Search,
@@ -15,11 +16,16 @@ import {
   Activity,
   Clock,
   Users,
-  Filter
+  Filter,
+  Zap,
+  Settings,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function GeofencesPage() {
   const { data: geofences = [], isLoading, error } = useGeofences();
+  const { data: devices = [] } = useDevices();
   const deleteGeofenceMutation = useDeleteGeofence();
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,6 +33,18 @@ export default function GeofencesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedGeofence, setSelectedGeofence] = useState<any>(null);
   const [showMap, setShowMap] = useState(true);
+  const [showAutomationRuleModal, setShowAutomationRuleModal] = useState(false);
+  const [selectedGeofenceForRule, setSelectedGeofenceForRule] = useState<string | null>(null);
+  const [expandedGeofence, setExpandedGeofence] = useState<string | null>(null);
+  const [showDevices, setShowDevices] = useState(true);
+  
+  // Get automation rules for expanded geofence
+  const { data: automationRules = [] } = useAutomationRulesForGeofence(
+    expandedGeofence || '', 
+    !!expandedGeofence
+  );
+  const deleteAutomationRuleMutation = useDeleteAutomationRule();
+  const toggleAutomationRuleMutation = useToggleAutomationRule();
 
   // Filter geofences based on search and type
   const filteredGeofences = geofences.filter(geofence => {
@@ -52,6 +70,33 @@ export default function GeofencesPage() {
       } catch (err) {
         console.error('Failed to delete geofence:', err);
       }
+    }
+  };
+
+  const handleCreateAutomationRule = (geofenceId: string) => {
+    setSelectedGeofenceForRule(geofenceId);
+    setShowAutomationRuleModal(true);
+  };
+
+  const handleToggleGeofenceExpansion = (geofenceId: string) => {
+    setExpandedGeofence(prev => prev === geofenceId ? null : geofenceId);
+  };
+
+  const handleDeleteAutomationRule = async (ruleId: string) => {
+    if (window.confirm('Are you sure you want to delete this automation rule?')) {
+      try {
+        await deleteAutomationRuleMutation.mutateAsync(ruleId);
+      } catch (err) {
+        console.error('Failed to delete automation rule:', err);
+      }
+    }
+  };
+
+  const handleToggleAutomationRule = async (ruleId: string, enabled: boolean) => {
+    try {
+      await toggleAutomationRuleMutation.mutateAsync({ ruleId, enabled });
+    } catch (err) {
+      console.error('Failed to toggle automation rule:', err);
     }
   };
 
@@ -124,14 +169,26 @@ export default function GeofencesPage() {
               </select>
             </div>
 
-            {/* Toggle Map */}
-            <button
-              onClick={() => setShowMap(!showMap)}
-              className="mt-4 w-full text-sm text-blue-600 hover:text-blue-700 flex items-center justify-center"
-            >
-              <MapPin className="h-4 w-4 mr-1" />
-              {showMap ? 'Hide Map' : 'Show Map'}
-            </button>
+            {/* Toggle Controls */}
+            <div className="mt-4 space-y-2">
+              <button
+                onClick={() => setShowMap(!showMap)}
+                className="w-full text-sm text-blue-600 hover:text-blue-700 flex items-center justify-center"
+              >
+                <MapPin className="h-4 w-4 mr-1" />
+                {showMap ? 'Hide Map' : 'Show Map'}
+              </button>
+              
+              {showMap && (
+                <button
+                  onClick={() => setShowDevices(!showDevices)}
+                  className="w-full text-sm text-gray-600 hover:text-gray-700 flex items-center justify-center"
+                >
+                  <Users className="h-4 w-4 mr-1" />
+                  {showDevices ? 'Hide Devices' : 'Show Devices'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Loading State */}
@@ -172,54 +229,138 @@ export default function GeofencesPage() {
             <div className="flex-1 overflow-y-auto">
               <div className="space-y-2 p-4">
                 {filteredGeofences.map((geofence) => (
-                  <div
-                    key={geofence.id}
-                    className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                    onClick={() => setSelectedGeofence(geofence)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-medium text-gray-900">{geofence.name}</h3>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            geofence.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {geofence.is_active ? 'Active' : 'Inactive'}
-                          </span>
+                  <div key={geofence.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                    {/* Geofence Header */}
+                    <div
+                      className="p-4 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => setSelectedGeofence(geofence)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h3 className="font-medium text-gray-900">{geofence.name}</h3>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              geofence.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {geofence.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          {geofence.description && (
+                            <p className="text-sm text-gray-600 mb-2">{geofence.description}</p>
+                          )}
+                          <div className="flex items-center space-x-4 text-xs text-gray-500">
+                            <span className="flex items-center">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {new Date(geofence.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
-                        {geofence.description && (
-                          <p className="text-sm text-gray-600 mb-2">{geofence.description}</p>
-                        )}
-                        <div className="flex items-center space-x-4 text-xs text-gray-500">
-                          <span className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {new Date(geofence.created_at).toLocaleDateString()}
-                          </span>
+                        <div className="flex items-center space-x-1 ml-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateAutomationRule(geofence.id);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
+                            title="Create automation rule"
+                          >
+                            <Zap className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleGeofenceExpansion(geofence.id);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
+                            title="View automation rules"
+                          >
+                            <Settings className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedGeofence(geofence);
+                              setShowCreateModal(true);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleGeofenceDelete(geofence.id);
+                            }}
+                            disabled={deleteGeofenceMutation.isPending}
+                            className="p-1.5 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-1 ml-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedGeofence(geofence);
-                            setShowCreateModal(true);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleGeofenceDelete(geofence.id);
-                          }}
-                          disabled={deleteGeofenceMutation.isPending}
-                          className="p-1.5 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
                     </div>
+
+                    {/* Automation Rules Section */}
+                    {expandedGeofence === geofence.id && (
+                      <div className="border-t border-gray-200 bg-gray-50 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                            <Zap className="h-4 w-4 mr-1" />
+                            Automation Rules
+                          </h4>
+                          <button
+                            onClick={() => handleCreateAutomationRule(geofence.id)}
+                            className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          >
+                            <Plus className="h-3 w-3 mr-1 inline" />
+                            Add Rule
+                          </button>
+                        </div>
+
+                        {automationRules.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-2">
+                            No automation rules configured for this geofence
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {automationRules.map((rule) => (
+                              <div key={rule.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm font-medium text-gray-900">{rule.name}</span>
+                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                      rule.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {rule.enabled ? 'Enabled' : 'Disabled'}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Events: {rule.on_events.join(', ')}
+                                    {rule.device ? ` • Device: ${rule.device.name}` : ' • All devices'}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <button
+                                    onClick={() => handleToggleAutomationRule(rule.id, !rule.enabled)}
+                                    className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                                    title={rule.enabled ? 'Disable rule' : 'Enable rule'}
+                                  >
+                                    {rule.enabled ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteAutomationRule(rule.id)}
+                                    className="p-1 text-gray-400 hover:text-red-600 rounded"
+                                    title="Delete rule"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -235,7 +376,16 @@ export default function GeofencesPage() {
                 ...geofence,
                 type: geofence.geofence_type
               }))}
-              devices={[]}
+              devices={showDevices ? devices
+                .filter(device => device.longitude && device.latitude) // Only show devices with known locations
+                .map(device => ({
+                  id: device.id,
+                  name: device.name,
+                  location: [device.longitude!, device.latitude!] as [number, number],
+                  lastSeen: device.last_seen || new Date().toISOString(),
+                  isActive: device.status === 'online'
+                })) : []
+              }
               onGeofenceCreate={handleGeofenceCreate}
               onGeofenceUpdate={handleGeofenceUpdate}
             />
@@ -298,6 +448,20 @@ export default function GeofencesPage() {
           </div>
         </div>
       )}
+
+      {/* Automation Rule Modal */}
+      <AutomationRuleModal
+        isOpen={showAutomationRuleModal}
+        onClose={() => {
+          setShowAutomationRuleModal(false);
+          setSelectedGeofenceForRule(null);
+        }}
+        preselectedGeofenceId={selectedGeofenceForRule || undefined}
+        onSuccess={(rule) => {
+          console.log('Automation rule created/updated:', rule);
+          // Optionally show a success notification here
+        }}
+      />
     </div>
   );
 }

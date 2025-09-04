@@ -86,7 +86,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       };
 
       req.accountId = decoded.accountId;
-      // Note: organizationId should be set separately when organizations are implemented
+      // Note: accountId should be set separately when accounts are implemented
       
       next();
     } catch (jwtError) {
@@ -137,7 +137,7 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
             sessionId: session.id
           };
           req.accountId = decoded.accountId;
-          // Note: organizationId should be set separately when organizations are implemented
+          // Note: accountId should be set separately when accounts are implemented
         }
       }
     } catch (jwtError) {
@@ -162,7 +162,6 @@ declare global {
         sessionId: string;
       };
       accountId?: string;
-      organizationId?: string;
     }
   }
 }

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getDbClient } from '../db/client.js';
-import { validateQuery, requireOrganization } from '../middleware/validation.js';
+import { validateQuery, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getKafkaProducer } from '../kafka/producer.js';
 
@@ -18,18 +18,18 @@ const EventsQuerySchema = z.object({
 });
 
 // Get events with filtering and pagination
-router.get('/', requireAuth, requireOrganization, validateQuery(EventsQuerySchema), async (req, res) => {
+router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), async (req, res) => {
   try {
     const client = await getDbClient();
     const { limit, offset, device_id, geofence_id, event_type, from_date, to_date } = req.query as any;
     
     // For development, get the first available organization if no auth
-    let organizationId = req.organizationId;
+    let accountId = req.accountId;
     
-    if (!organizationId) {
-      const orgResult = await client.query('SELECT id FROM organizations ORDER BY created_at LIMIT 1');
+    if (!accountId) {
+      const orgResult = await client.query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (orgResult.rows.length > 0) {
-        organizationId = orgResult.rows[0].id;
+        accountId = orgResult.rows[0].id;
       } else {
         return res.status(400).json({
           success: false,
@@ -39,55 +39,55 @@ router.get('/', requireAuth, requireOrganization, validateQuery(EventsQuerySchem
     }
     
     let whereClause = `
-      WHERE d.account_id = $1
+      WHERE ge.account_id = $1
     `;
-    const values = [organizationId];
+    const values = [accountId];
     let paramCount = 2;
     
     if (device_id) {
-      whereClause += ` AND e.device_id = $${paramCount++}`;
+      whereClause += ` AND ge.device_id = $${paramCount++}`;
       values.push(device_id);
     }
     
     if (geofence_id) {
-      whereClause += ` AND e.geofence_id = $${paramCount++}`;
+      whereClause += ` AND ge.geofence_id = $${paramCount++}`;
       values.push(geofence_id);
     }
     
     if (event_type) {
-      whereClause += ` AND e.event_type = $${paramCount++}`;
+      whereClause += ` AND ge.type = $${paramCount++}`;
       values.push(event_type);
     }
     
     if (from_date) {
-      whereClause += ` AND e.timestamp >= $${paramCount++}`;
+      whereClause += ` AND ge.ts >= $${paramCount++}`;
       values.push(from_date);
     }
     
     if (to_date) {
-      whereClause += ` AND e.timestamp <= $${paramCount++}`;
+      whereClause += ` AND ge.ts <= $${paramCount++}`;
       values.push(to_date);
     }
     
     const query = `
       SELECT 
-        e.id,
-        e.event_type,
-        e.device_id,
-        e.geofence_id,
-        ST_X(e.location) as longitude,
-        ST_Y(e.location) as latitude,
-        e.metadata,
-        e.timestamp,
-        e.processed_at,
+        ge.id,
+        ge.type as event_type,
+        ge.device_id,
+        ge.geofence_id,
+        NULL as longitude,
+        NULL as latitude,
+        '{}' as metadata,
+        ge.ts as timestamp,
+        ge.ts as processed_at,
         d.name as device_name,
         g.name as geofence_name,
         COUNT(*) OVER() as total_count
-      FROM events e
-      LEFT JOIN devices d ON e.device_id = d.id
-      LEFT JOIN geofences g ON e.geofence_id = g.id
+      FROM geofence_events ge
+      LEFT JOIN devices d ON ge.device_id = d.id
+      LEFT JOIN geofences g ON ge.geofence_id = g.id
       ${whereClause}
-      ORDER BY e.timestamp DESC
+      ORDER BY ge.ts DESC
       LIMIT $${paramCount++}
       OFFSET $${paramCount}
     `;
@@ -137,32 +137,32 @@ router.get('/', requireAuth, requireOrganization, validateQuery(EventsQuerySchem
 });
 
 // Get specific event
-router.get('/:eventId', requireAuth, requireOrganization, async (req, res) => {
+router.get('/:eventId', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
     const query = `
       SELECT 
-        e.id,
-        e.event_type,
-        e.device_id,
-        e.geofence_id,
-        ST_X(e.location) as longitude,
-        ST_Y(e.location) as latitude,
-        e.metadata,
-        e.timestamp,
-        e.processed_at,
+        ge.id,
+        ge.type as event_type,
+        ge.device_id,
+        ge.geofence_id,
+        NULL as longitude,
+        NULL as latitude,
+        '{}' as metadata,
+        ge.ts as timestamp,
+        ge.ts as processed_at,
         d.name as device_name,
-        d.device_token,
+        d.device_key as device_token,
         g.name as geofence_name,
-        ST_AsGeoJSON(g.geometry) as geofence_geometry
-      FROM events e
-      LEFT JOIN devices d ON e.device_id = d.id
-      LEFT JOIN geofences g ON e.geofence_id = g.id
-      WHERE e.id = $1
+        ST_AsGeoJSON(g.geom) as geofence_geometry
+      FROM geofence_events ge
+      LEFT JOIN devices d ON ge.device_id = d.id
+      LEFT JOIN geofences g ON ge.geofence_id = g.id
+      WHERE ge.id = $1
       AND (d.account_id = $2 OR g.account_id = $2)
     `;
     
-    const result = await client.query(query, [req.params.eventId, req.organizationId]);
+    const result = await client.query(query, [req.params.eventId, req.accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -209,28 +209,28 @@ router.get('/:eventId', requireAuth, requireOrganization, async (req, res) => {
 
 // Replay event (trigger automation processing again)
 // Replay event (trigger automation processing again)
-router.post('/:eventId/replay', requireAuth, requireOrganization, async (req, res) => {
+router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
     
     // First, verify the event exists and belongs to the organization
     const eventQuery = `
       SELECT
-        e.id,
-        e.event_type,
-        e.device_id,
-        e.geofence_id,
-        ST_X(e.location) as longitude,
-        ST_Y(e.location) as latitude,
-        e.metadata,
-        e.timestamp,
-        d.device_token
-      FROM events e
-      JOIN devices d ON e.device_id = d.id
-      WHERE e.id = $1 AND d.account_id = $2
+        ge.id,
+        ge.type as event_type,
+        ge.device_id,
+        ge.geofence_id,
+        NULL as longitude,
+        NULL as latitude,
+        '{}' as metadata,
+        ge.ts as timestamp,
+        d.device_key as device_token
+      FROM geofence_events ge
+      JOIN devices d ON ge.device_id = d.id
+      WHERE ge.id = $1 AND d.account_id = $2
     `;
     
-    const eventResult = await client.query(eventQuery, [req.params.eventId, req.organizationId]);
+    const eventResult = await client.query(eventQuery, [req.params.eventId, req.accountId]);
     
     if (eventResult.rows.length === 0) {
       return res.status(404).json({
@@ -241,16 +241,8 @@ router.post('/:eventId/replay', requireAuth, requireOrganization, async (req, re
     
     const event = eventResult.rows[0];
     
-    // Check if this is a geofence event that can be replayed
-    if (!event.event_type.startsWith('geofence_')) {
-      return res.status(400).json({
-        success: false,
-        error: 'Only geofence events can be replayed'
-      });
-    }
-    
-    // Extract the trigger type from event_type (e.g., "geofence_enter" -> "enter")
-    const triggerType = event.event_type.replace('geofence_', '');
+    // All events in geofence_events table are geofence events
+    const triggerType = event.event_type;
     
     // Create a synthetic geofence event for replay
     const replayEvent = {
@@ -279,21 +271,19 @@ router.post('/:eventId/replay', requireAuth, requireOrganization, async (req, re
       // Don't fail the request if Kafka publishing fails, just log it
     }
     
-    // For now, we'll just create a new event record to indicate replay
+    // Create a new geofence event record to indicate replay
     const replayQuery = `
-      INSERT INTO events (event_type, device_id, geofence_id, location, metadata, timestamp, processed_at)
-      VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6, $7, NOW())
+      INSERT INTO geofence_events (type, device_id, geofence_id, ts, event_hash)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING id
     `;
     
     const replayResult = await client.query(replayQuery, [
-      `${event.event_type}_replay`,
+      event.event_type,
       event.device_id,
       event.geofence_id,
-      replayEvent.location.longitude,
-      replayEvent.location.latitude,
-      JSON.stringify(replayEvent.metadata),
-      replayEvent.timestamp
+      replayEvent.timestamp,
+      `replay_${event.id}_${Date.now()}`
     ]);
     
     res.json({
@@ -316,41 +306,41 @@ router.post('/:eventId/replay', requireAuth, requireOrganization, async (req, re
 
 // Get automation execution history for events
 // Get automation execution history for events
-router.get('/:eventId/executions', requireAuth, requireOrganization, async (req, res) => {
+router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
     const query = `
       SELECT 
-        ae.id,
-        ae.status,
-        ae.response_data,
-        ae.error_message,
-        ae.retry_count,
-        ae.executed_at,
-        ae.completed_at,
+        d_exec.id,
+        d_exec.status,
+        '{}' as response_data,
+        d_exec.last_error as error_message,
+        d_exec.attempt as retry_count,
+        d_exec.created_at as executed_at,
+        d_exec.updated_at as completed_at,
         ar.name as rule_name,
-        i.name as integration_name,
-        i.type as integration_type
-      FROM automation_executions ae
-      JOIN automation_rules ar ON ae.automation_rule_id = ar.id
-      JOIN integrations i ON ar.integration_id = i.id
-      JOIN events e ON ae.event_id = e.id
-      JOIN devices d ON e.device_id = d.id
-      WHERE ae.event_id = $1 AND d.account_id = $2
-      ORDER BY ae.executed_at DESC
+        a.name as integration_name,
+        a.kind as integration_type
+      FROM deliveries d_exec
+      JOIN automation_rules ar ON d_exec.rule_id = ar.id
+      JOIN automations a ON d_exec.automation_id = a.id
+      JOIN geofence_events ge ON d_exec.gevent_id = ge.id
+      JOIN devices d ON ge.device_id = d.id
+      WHERE d_exec.gevent_id = $1 AND d.account_id = $2
+      ORDER BY d_exec.created_at DESC
     `;
     
-    const result = await client.query(query, [req.params.eventId, req.organizationId]);
+    const result = await client.query(query, [req.params.eventId, req.accountId]);
     
     if (result.rows.length === 0) {
       // Check if the event exists at all
       const eventExistsQuery = `
-        SELECT e.id
-        FROM events e
-        JOIN devices d ON e.device_id = d.id
-        WHERE e.id = $1 AND d.account_id = $2
+        SELECT ge.id
+        FROM geofence_events ge
+        JOIN devices d ON ge.device_id = d.id
+        WHERE ge.id = $1 AND d.account_id = $2
       `;
-      const eventExists = await client.query(eventExistsQuery, [req.params.eventId, req.organizationId]);
+      const eventExists = await client.query(eventExistsQuery, [req.params.eventId, req.accountId]);
       
       if (eventExists.rows.length === 0) {
         return res.status(404).json({

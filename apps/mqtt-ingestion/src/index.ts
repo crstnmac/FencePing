@@ -2,8 +2,13 @@ import { MqttIngestionService } from './MqttIngestionService.js';
 import { Kafka } from 'kafkajs';
 import pino from 'pino';
 import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
@@ -20,7 +25,8 @@ const logger = pino({
 async function main() {
   const requiredEnvVars = [
     'MQTT_BROKER_URL',
-    'KAFKA_BROKERS'
+    'KAFKA_BROKERS',
+    'DATABASE_URL'
   ];
 
   const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
@@ -46,7 +52,10 @@ async function main() {
       clientId: process.env.MQTT_CLIENT_ID || `mqtt-ingestion-${Date.now()}`
     },
     kafka,
-    logger
+    logger,
+    database: {
+      connectionString: process.env.DATABASE_URL!
+    }
   });
 
   // Graceful shutdown

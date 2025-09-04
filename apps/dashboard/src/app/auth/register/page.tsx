@@ -10,7 +10,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [organizationName, setOrganizationName] = useState('');
+  const [organizationName, setAccountName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -38,7 +38,7 @@ export default function RegisterPage() {
 
     if (!name.trim()) errors.push('Full name is required');
     if (!email.trim()) errors.push('Email is required');
-    if (!organizationName.trim()) errors.push('Organization name is required');
+    if (!organizationName.trim()) errors.push('Account name is required');
     
     if (password.length < 8) {
       errors.push('Password must be at least 8 characters long');
@@ -160,7 +160,7 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="organization" className="block text-sm font-medium text-gray-700">
-                Organization Name
+                Account Name
               </label>
               <input
                 id="organization"
@@ -171,7 +171,7 @@ export default function RegisterPage() {
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                 placeholder="Your company or organization"
                 value={organizationName}
-                onChange={(e) => setOrganizationName(e.target.value)}
+                onChange={(e) => setAccountName(e.target.value)}
               />
             </div>
 

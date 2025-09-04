@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getDbClient } from '../db/client.js';
-import { validateBody, requireOrganization } from '../middleware/validation.js';
+import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -45,7 +45,7 @@ const TestLocationSchema = z.object({
 });
 
 // Get all geofences for organization
-router.get('/', requireAuth, requireOrganization, async (req, res) => {
+router.get('/', requireAuth, requireAccount, async (req, res) => {
   const client = await getDbClient();
   try {
     const query = `
@@ -110,7 +110,7 @@ router.get('/', requireAuth, requireOrganization, async (req, res) => {
 });
 
 // Create new geofence
-router.post('/', requireAuth, requireOrganization, validateBody(CreateGeofenceSchema), async (req, res) => {
+router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema), async (req, res) => {
   try {
     const client = await getDbClient();
     let geometryWKT: string;
@@ -124,7 +124,7 @@ router.post('/', requireAuth, requireOrganization, validateBody(CreateGeofenceSc
     }
 
     const query = `
-      INSERT INTO geofences (name, description, organization_id, geometry, geofence_type, metadata)
+      INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata)
       VALUES ($1, $2, $3, ${geometryWKT}, $4, $5)
       RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at
     `;
@@ -132,7 +132,7 @@ router.post('/', requireAuth, requireOrganization, validateBody(CreateGeofenceSc
     const result = await client.query(query, [
       req.body.name,
       req.body.description || null,
-      req.organizationId,
+      req.accountId,
       req.body.type,
       JSON.stringify(req.body.metadata || {})
     ]);
@@ -157,7 +157,7 @@ router.post('/', requireAuth, requireOrganization, validateBody(CreateGeofenceSc
 });
 
 // Get specific geofence
-router.get('/:geofenceId', requireAuth, requireOrganization, async (req, res) => {
+router.get('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
     const query = `
@@ -172,10 +172,10 @@ router.get('/:geofenceId', requireAuth, requireOrganization, async (req, res) =>
         created_at,
         updated_at
       FROM geofences 
-      WHERE id = $1 AND organization_id = $2
+      WHERE id = $1 AND account_id = $2
     `;
 
-    const result = await client.query(query, [req.params.geofenceId, req.organizationId]);
+    const result = await client.query(query, [req.params.geofenceId, req.accountId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -204,7 +204,7 @@ router.get('/:geofenceId', requireAuth, requireOrganization, async (req, res) =>
 });
 
 // Update geofence
-router.put('/:geofenceId', requireAuth, requireOrganization, validateBody(UpdateGeofenceSchema), async (req, res) => {
+router.put('/:geofenceId', requireAuth, requireAccount, validateBody(UpdateGeofenceSchema), async (req, res) => {
   try {
     const client = await getDbClient();
     const updates = [];
@@ -239,12 +239,12 @@ router.put('/:geofenceId', requireAuth, requireOrganization, validateBody(Update
     }
 
     updates.push(`updated_at = NOW()`);
-    values.push(req.params.geofenceId, req.organizationId);
+    values.push(req.params.geofenceId, req.accountId);
 
     const query = `
       UPDATE geofences 
       SET ${updates.join(', ')}
-      WHERE id = $${paramCount++} AND organization_id = $${paramCount}
+      WHERE id = $${paramCount++} AND account_id = $${paramCount}
       RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, updated_at
     `;
 
@@ -277,11 +277,11 @@ router.put('/:geofenceId', requireAuth, requireOrganization, validateBody(Update
 });
 
 // Delete geofence
-router.delete('/:geofenceId', requireAuth, requireOrganization, async (req, res) => {
+router.delete('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
-    const query = 'DELETE FROM geofences WHERE id = $1 AND organization_id = $2';
-    const result = await client.query(query, [req.params.geofenceId, req.organizationId]);
+    const query = 'DELETE FROM geofences WHERE id = $1 AND account_id = $2';
+    const result = await client.query(query, [req.params.geofenceId, req.accountId]);
 
     if (result.rowCount === 0) {
       return res.status(404).json({
@@ -304,7 +304,7 @@ router.delete('/:geofenceId', requireAuth, requireOrganization, async (req, res)
 });
 
 // Test if a location is inside the geofence
-router.post('/:geofenceId/test', requireAuth, requireOrganization, validateBody(TestLocationSchema), async (req, res) => {
+router.post('/:geofenceId/test', requireAuth, requireAccount, validateBody(TestLocationSchema), async (req, res) => {
   try {
     const client = await getDbClient();
     const query = `
@@ -312,14 +312,14 @@ router.post('/:geofenceId/test', requireAuth, requireOrganization, validateBody(
         ST_Contains(geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326)) as is_inside,
         ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance_meters
       FROM geofences 
-      WHERE id = $3 AND organization_id = $4
+      WHERE id = $3 AND account_id = $4
     `;
 
     const result = await client.query(query, [
       req.body.longitude,
       req.body.latitude,
       req.params.geofenceId,
-      req.organizationId
+      req.accountId
     ]);
 
     if (result.rows.length === 0) {

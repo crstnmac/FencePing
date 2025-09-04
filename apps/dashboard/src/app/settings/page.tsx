@@ -31,9 +31,9 @@ const settingsSections: SettingsSection[] = [
   },
   {
     id: 'organization',
-    title: 'Organization',
+    title: 'Account',
     icon: Building2,
-    description: 'Organization settings and team management'
+    description: 'Account settings and team management'
   },
   {
     id: 'notifications',
@@ -76,7 +76,7 @@ export default function SettingsPage() {
     confirmPassword: ''
   });
 
-  // Organization settings state
+  // Account settings state
   const [orgData, setOrgData] = useState({
     name: organization?.name || '',
     timezone: 'UTC',
@@ -104,7 +104,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveOrganization = async () => {
+  const handleSaveAccount = async () => {
     setIsLoading(true);
     try {
       // TODO: Implement organization update API call
@@ -210,14 +210,14 @@ export default function SettingsPage() {
     </div>
   );
 
-  const renderOrganizationSection = () => (
+  const renderAccountSection = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Organization Details</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Account Details</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Organization Name
+              Account Name
             </label>
             <input
               type="text"
@@ -269,7 +269,7 @@ export default function SettingsPage() {
 
       <div className="flex justify-end">
         <button
-          onClick={handleSaveOrganization}
+          onClick={handleSaveAccount}
           disabled={isLoading}
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
         >
@@ -410,7 +410,7 @@ export default function SettingsPage() {
         
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-900">Organization API Key</h4>
+            <h4 className="text-sm font-medium text-gray-900">Account API Key</h4>
             <button
               onClick={() => setShowApiKey(!showApiKey)}
               className="text-indigo-600 hover:text-indigo-800 text-sm"
@@ -426,7 +426,7 @@ export default function SettingsPage() {
             {showApiKey ? 'gf_live_1234567890abcdef1234567890abcdef' : '••••••••••••••••••••••••••••••••'}
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            This key provides access to your organization's geofence system. Keep it secure.
+            This key provides access to your organization&apos;s geofence system. Keep it secure.
           </p>
         </div>
 
@@ -565,7 +565,7 @@ export default function SettingsPage() {
             </label>
             <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
               <option value="decimal">Decimal Degrees (40.7128, -74.0060)</option>
-              <option value="dms">Degrees Minutes Seconds (40°42'46"N, 74°00'22"W)</option>
+              <option value="dms">Degrees Minutes Seconds (40°42&apos;46&quot;N, 74°00&apos;22&quot;W)</option>
             </select>
           </div>
         </div>
@@ -615,7 +615,7 @@ export default function SettingsPage() {
       case 'profile':
         return renderProfileSection();
       case 'organization':
-        return renderOrganizationSection();
+        return renderAccountSection();
       case 'notifications':
         return renderNotificationsSection();
       case 'api-keys':

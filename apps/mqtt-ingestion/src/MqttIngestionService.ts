@@ -1,8 +1,9 @@
 import mqtt, { MqttClient } from 'mqtt';
 import { Kafka, Producer } from 'kafkajs';
 import { Logger } from 'pino';
-import { createHash, createHmac } from 'crypto';
+import { createHmac } from 'crypto';
 import { z } from 'zod';
+import { Pool } from 'pg';
 
 interface MqttIngestionConfig {
   mqtt: {
@@ -13,6 +14,9 @@ interface MqttIngestionConfig {
   };
   kafka: Kafka;
   logger: Logger;
+  database: {
+    connectionString: string;
+  };
 }
 
 const LocationPayloadSchema = z.object({
@@ -46,6 +50,7 @@ export class MqttIngestionService {
   private logger: Logger;
   private config: MqttIngestionConfig;
   private deviceKeyMap = new Map<string, { accountId: string; deviceId: string }>();
+  private dbPool: Pool;
   private isRunning = false;
 
   constructor(config: MqttIngestionConfig) {
@@ -56,6 +61,12 @@ export class MqttIngestionService {
       transactionTimeout: 30000
     });
     this.logger = config.logger;
+    this.dbPool = new Pool({
+      connectionString: config.database.connectionString,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
   }
 
   async start(): Promise<void> {
@@ -101,6 +112,9 @@ export class MqttIngestionService {
 
       await this.kafkaProducer.disconnect();
       this.logger.info('🔌 Disconnected from Kafka');
+
+      await this.dbPool.end();
+      this.logger.info('🔌 Disconnected from database');
 
       this.isRunning = false;
       this.logger.info('⏹️  MQTT Ingestion Service stopped');
@@ -320,23 +334,36 @@ export class MqttIngestionService {
       return this.deviceKeyMap.get(cacheKey)!;
     }
 
-    // In a real implementation, this would query the database
-    // For now, we'll create a simple hash-based device ID
-    // This should be replaced with actual database lookup
-    const deviceId = createHash('sha256')
-      .update(`${accountId}:${deviceKey}`)
-      .digest('hex')
-      .substring(0, 32);
+    try {
+      // Query database for device with this key and account
+      const result = await this.dbPool.query(
+        `SELECT d.id as device_id, d.account_id 
+         FROM devices d 
+         WHERE d.device_key = $1 AND d.account_id = $2 AND d.is_paired = true`,
+        [deviceKey, accountId]
+      );
 
-    // Format as UUID (this is a simplified approach)
-    const uuid = `${deviceId.substring(0, 8)}-${deviceId.substring(8, 12)}-${deviceId.substring(12, 16)}-${deviceId.substring(16, 20)}-${deviceId.substring(20, 32)}`;
+      if (result.rows.length === 0) {
+        this.logger.warn({ accountId, deviceKey }, 'Device not found in database');
+        return null;
+      }
 
-    const deviceInfo = { accountId, deviceId: uuid };
-    
-    // Cache for future lookups
-    this.deviceKeyMap.set(cacheKey, deviceInfo);
-    
-    return deviceInfo;
+      const deviceInfo = {
+        accountId: result.rows[0].account_id,
+        deviceId: result.rows[0].device_id
+      };
+      
+      // Cache for future lookups (cache for 5 minutes)
+      this.deviceKeyMap.set(cacheKey, deviceInfo);
+      setTimeout(() => {
+        this.deviceKeyMap.delete(cacheKey);
+      }, 5 * 60 * 1000);
+      
+      return deviceInfo;
+    } catch (error) {
+      this.logger.error({ error, accountId, deviceKey }, 'Database error during device resolution');
+      return null;
+    }
   }
 
   private verifySignature(payload: z.infer<typeof LocationPayloadSchema>, deviceKey: string): boolean {

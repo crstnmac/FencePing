@@ -11,9 +11,6 @@ COPY packages/ ./packages/
 # Install dependencies
 RUN npm ci
 
-# Build all packages
-RUN npm run build:packages
-
 FROM base AS api
 WORKDIR /app
 EXPOSE 3001

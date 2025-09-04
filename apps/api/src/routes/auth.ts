@@ -4,7 +4,7 @@ import { compareSync, hashSync } from 'bcryptjs';
 import jwt, { SignOptions, Secret } from "jsonwebtoken";
 import crypto from 'crypto';
 import { getDbClient } from '../db/client.js';
-import { validateBody, requireOrganization } from '../middleware/validation.js';
+import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { OAuthManager } from '../auth/OAuthManager.js';
 import { generateSecureToken, hashData } from '../utils/encryption.js';
@@ -404,7 +404,7 @@ router.get('/me', requireAuth, async (req, res) => {
 // OAuth Routes
 
 // Generate OAuth authorization URL
-router.get('/oauth/:provider/authorize', requireAuth, requireOrganization, async (req, res) => {
+router.get('/oauth/:provider/authorize', requireAuth, requireAccount, async (req, res) => {
   try {
     const { provider } = req.params;
     const { integration_id } = req.query;
@@ -468,7 +468,7 @@ router.get('/callback/:provider', async (req, res) => {
 });
 
 // Refresh OAuth tokens
-router.post('/oauth/:provider/refresh', requireAuth, requireOrganization, async (req, res) => {
+router.post('/oauth/:provider/refresh', requireAuth, requireAccount, async (req, res) => {
   try {
     const { provider } = req.params;
     const accountId = req.accountId!;
@@ -493,7 +493,7 @@ router.post('/oauth/:provider/refresh', requireAuth, requireOrganization, async 
 });
 
 // Revoke OAuth tokens
-router.delete('/oauth/:provider/revoke', requireAuth, requireOrganization, async (req, res) => {
+router.delete('/oauth/:provider/revoke', requireAuth, requireAccount, async (req, res) => {
   try {
     const { provider } = req.params;
     const accountId = req.accountId!;

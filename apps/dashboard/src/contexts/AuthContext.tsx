@@ -1,12 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { authService, AuthError, type User, type Organization, type LoginRequest, type RegisterRequest } from '../services/auth';
+import { authService, AuthError, type User, type Account, type LoginRequest, type RegisterRequest } from '../services/auth';
 
 // Auth context state interface
 interface AuthState {
   user: User | null;
-  organization: Organization | null;
+  organization: Account | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   error: AuthError | null;
@@ -41,7 +41,7 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   // State management
   const [user, setUser] = useState<User | null>(null);
-  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [organization, setAccount] = useState<Account | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<AuthError | null>(null);
 
@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Handle logout (internal method)
   const handleLogout = useCallback(async () => {
     setUser(null);
-    setOrganization(null);
+    setAccount(null);
     setError(null);
     authService.removeStoredToken();
   }, []);
@@ -73,7 +73,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       if (response.success) {
         setUser(response.data.user);
-        setOrganization(response.data.organization);
+        setAccount(response.data.organization);
       } else {
         // Invalid response, clear auth
         await handleLogout();
@@ -107,7 +107,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       if (response.success) {
         setUser(response.data.user);
-        setOrganization(response.data.organization);
+        setAccount(response.data.organization);
       } else {
         throw new AuthError(response.error || 'Login failed');
       }
@@ -129,7 +129,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       if (response.success) {
         setUser(response.data.user);
-        setOrganization(response.data.organization);
+        setAccount(response.data.organization);
       } else {
         throw new AuthError(response.error || 'Registration failed');
       }

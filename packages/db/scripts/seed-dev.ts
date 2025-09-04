@@ -55,25 +55,25 @@ async function seedDevelopmentData() {
     const users = userResult.rows;
     console.log(`📊 Created ${users.length} users`);
 
-    // Create organizations
-    console.log('🏢 Creating organizations...');
+    // Create accounts
+    console.log('🏢 Creating accounts...');
     const orgResult = await client.query(`
-      INSERT INTO organizations (name, owner_id) VALUES 
+      INSERT INTO accounts (name, owner_id) VALUES 
       ('Acme Corporation', $1),
       ('Beta Technologies', $2)
       RETURNING id, name, owner_id
     `, [users[0].id, users[1].id]);
-    const organizations = orgResult.rows;
-    console.log(`🏢 Created ${organizations.length} organizations`);
+    const accounts = orgResult.rows;
+    console.log(`🏢 Created ${accounts.length} accounts`);
 
     // Summary
     console.log('\n🎉 Development seeding completed successfully!');
     console.log('📊 Summary:');
     console.log(`   👥 Users: ${users.length}`);
-    console.log(`   🏢 Organizations: ${organizations.length}`);
+    console.log(`   🏢 Accounts: ${accounts.length}`);
 
-    console.log('\n🧪 Organizations data available:');
-    console.log('   • Test organizations with associated owners');
+    console.log('\n🧪 Accounts data available:');
+    console.log('   • Test accounts with associated owners');
     console.log('   • Can now test events fetching with organization context');
 
   } catch (error) {

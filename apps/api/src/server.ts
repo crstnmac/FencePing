@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
+import deviceGroupsRouter from './routes/deviceGroups.js';
 import { geofenceRoutes } from './routes/geofences.js';
 import { eventRoutes } from './routes/events.js';
 import { integrationRoutes } from './routes/integrations.js';
@@ -83,6 +84,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/devices', deviceRoutes);
+app.use('/api/device-groups', deviceGroupsRouter);
 app.use('/api/geofences', geofenceRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/integrations', integrationRoutes);

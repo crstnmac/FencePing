@@ -97,10 +97,10 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
 
     // Find API key in database
     const queryText = `
-      SELECT ak.id, ak.organization_id, ak.scopes, ak.is_active, ak.expires_at,
+      SELECT ak.id, ak.account_id, ak.scopes, ak.is_active, ak.expires_at,
              o.name as organization_name
       FROM api_keys ak
-      JOIN organizations o ON ak.organization_id = o.id
+      JOIN accounts o ON ak.account_id = o.id
       WHERE ak.key_hash = $1 AND ak.is_active = true
     `;
 
@@ -139,10 +139,10 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
     // Add API key info to request
     req.apiKey = {
       id: apiKeyData.id,
-      organizationId: apiKeyData.organization_id,
+      accountId: apiKeyData.account_id,
       scopes: apiKeyData.scopes || []
     };
-    req.accountId = apiKeyData.organization_id;
+    req.accountId = apiKeyData.account_id;
 
     next();
   } catch (error) {
@@ -264,7 +264,7 @@ declare global {
     interface Request {
       apiKey?: {
         id: string;
-        organizationId: string;
+        accountId: string;
         scopes: string[];
       };
     }

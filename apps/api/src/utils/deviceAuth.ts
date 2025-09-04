@@ -11,7 +11,6 @@ const JWT_SECRET = auth.JWT_SECRET;
 export interface DeviceJWTPayload {
   deviceId: string;
   accountId: string;
-  organizationId?: string;
   sessionId: string;
   permissions: string[];
   iat: number;
@@ -48,7 +47,6 @@ export const DeviceTokenResponseSchema = z.object({
 export async function generateDeviceTokens(
   deviceId: string,
   accountId: string,
-  organizationId?: string,
   permissions: string[] = ['read', 'write']
 ): Promise<{
   accessToken: string;
@@ -65,7 +63,6 @@ export async function generateDeviceTokens(
     const accessPayload: Omit<DeviceJWTPayload, 'iat' | 'exp'> = {
       deviceId,
       accountId,
-      organizationId,
       sessionId,
       permissions
     };
@@ -123,7 +120,7 @@ export async function completeDevicePairing(
   try {
     // Find pairing request
     const pairingRequestResult = await client.query(
-      `SELECT dpr.*, d.id as device_id, d.account_id, d.organization_id
+      `SELECT dpr.*, d.id as device_id, d.account_id, d.account_id
        FROM device_pairing_requests dpr
        JOIN devices d ON dpr.pairing_code = d.pairing_code
        WHERE dpr.pairing_code = $1 AND dpr.expires_at > NOW() AND dpr.used_at IS NULL`,
@@ -137,7 +134,6 @@ export async function completeDevicePairing(
     const pairingRequest = pairingRequestResult.rows[0];
     const deviceId = pairingRequest.device_id;
     const accountId = pairingRequest.account_id;
-    const organizationId = pairingRequest.organization_id;
 
     await client.query('BEGIN');
 
@@ -162,14 +158,14 @@ export async function completeDevicePairing(
 
     // Create device-user association (owner permission)
     await client.query(
-      `INSERT INTO device_users (device_id, user_id, organization_id, permissions, granted_by)
+      `INSERT INTO device_users (device_id, user_id, account_id, permissions, granted_by)
        VALUES ($1, $2, $3, 'owner', $2)
        ON CONFLICT (device_id, user_id) DO NOTHING`,
-      [deviceId, pairingRequest.created_by, organizationId]
+      [deviceId, pairingRequest.created_by, accountId]
     );
 
     // Generate tokens
-    const tokens = await generateDeviceTokens(deviceId, accountId, organizationId);
+    const tokens = await generateDeviceTokens(deviceId, accountId, accountId);
 
     await client.query('COMMIT');
 

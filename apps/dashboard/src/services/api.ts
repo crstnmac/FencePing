@@ -69,6 +69,7 @@ export interface Device {
   health_metrics?: any;
   capabilities?: any;
   device_model?: string;
+  group_id?: string;
   device_firmware_version?: string;
   connection_type?: string;
   pairing_code?: string;
@@ -139,6 +140,107 @@ export interface DeviceShareRequest {
   permissions: 'read' | 'write' | 'admin';
 }
 
+// Device Groups Types
+export interface DeviceGroup {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  icon: string;
+  metadata: any;
+  deviceCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDeviceGroupRequest {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  metadata?: any;
+}
+
+// Device Commands Types
+export interface DeviceCommand {
+  commandId: string;
+  command: 'restart' | 'update_config' | 'ping' | 'get_status' | 'update_firmware' | 'factory_reset';
+  parameters?: any;
+  status: 'pending' | 'sent' | 'acknowledged' | 'completed' | 'failed' | 'timeout';
+  response?: any;
+  error?: string;
+  createdAt: string;
+  completedAt?: string;
+  timeout: number;
+}
+
+export interface SendDeviceCommandRequest {
+  command: 'restart' | 'update_config' | 'ping' | 'get_status' | 'update_firmware' | 'factory_reset';
+  parameters?: any;
+  timeout?: number;
+}
+
+// Device Location History Types
+export interface DeviceLocationEntry {
+  id: string;
+  longitude: number;
+  latitude: number;
+  timestamp: string;
+  metadata?: any;
+}
+
+export interface DeviceLocationHistoryResponse {
+  success: boolean;
+  data: DeviceLocationEntry[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
+// Device Tags Types
+export interface DeviceTag {
+  tag: string;
+  value?: string;
+  created_at: string;
+}
+
+export interface CreateDeviceTagRequest {
+  tag: string;
+  value?: string;
+}
+
+// Device Certificates Types
+export interface DeviceCertificate {
+  certificateId: string;
+  serial: string;
+  issuedAt: string;
+  expiresAt: string;
+  isRevoked: boolean;
+  revokedAt?: string;
+  revocationReason?: string;
+}
+
+// Bulk Operations Types
+export interface BulkDeviceOperationResult {
+  created?: Device[];
+  updated?: Device[];
+  deleted?: { id: string; name: string }[];
+  failed?: any[];
+  summary: {
+    total?: number;
+    created?: number;
+    updated?: number;
+    deleted?: number;
+    requested?: number;
+    failed?: number;
+  };
+}
+
 export interface CreateDeviceRequest {
   name: string;
   description?: string;
@@ -204,6 +306,38 @@ export interface Automation {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Automation Rule Types
+export interface AutomationRule {
+  id: string;
+  name: string;
+  account_id: string;
+  geofence_id: string;
+  device_id?: string; // Optional - can apply to all devices or specific device
+  automation_id: string;
+  on_events: ('enter' | 'exit' | 'dwell')[];
+  min_dwell_seconds?: number;
+  device_filter: Record<string, any>; // JSON filter for device properties
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+  
+  // Populated relations
+  geofence?: Geofence;
+  device?: Device;
+  automation?: Automation;
+}
+
+export interface CreateAutomationRuleRequest {
+  name: string;
+  geofence_id: string;
+  device_id?: string;
+  automation_id: string;
+  on_events: ('enter' | 'exit' | 'dwell')[];
+  min_dwell_seconds?: number;
+  device_filter?: Record<string, any>;
+  enabled?: boolean;
 }
 
 // Integration Types
@@ -364,6 +498,184 @@ export const deviceService = {
       method: 'POST',
     });
     return response;
+  },
+
+  // Device Location History
+  async getDeviceLocationHistory(
+    deviceId: string, 
+    params: { 
+      page?: number; 
+      limit?: number; 
+      start_date?: string; 
+      end_date?: string; 
+    } = {}
+  ): Promise<DeviceLocationHistoryResponse> {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    });
+    const queryString = searchParams.toString();
+    const endpoint = `/api/devices/${deviceId}/locations${queryString ? `?${queryString}` : ''}`;
+    return await apiRequest<DeviceLocationHistoryResponse>(endpoint);
+  },
+
+  // Device Commands
+  async sendDeviceCommand(deviceId: string, command: SendDeviceCommandRequest): Promise<DeviceCommand> {
+    const response = await apiRequest<{ data: DeviceCommand }>(`/api/devices/${deviceId}/commands`, {
+      method: 'POST',
+      body: JSON.stringify(command),
+    });
+    return response.data;
+  },
+
+  async getDeviceCommand(deviceId: string, commandId: string): Promise<DeviceCommand> {
+    const response = await apiRequest<{ data: DeviceCommand }>(`/api/devices/${deviceId}/commands/${commandId}`);
+    return response.data;
+  },
+
+  async getDeviceCommands(deviceId: string, params: { page?: number; limit?: number } = {}): Promise<{
+    data: DeviceCommand[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }> {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    });
+    const queryString = searchParams.toString();
+    const endpoint = `/api/devices/${deviceId}/commands${queryString ? `?${queryString}` : ''}`;
+    return await apiRequest<{
+      data: DeviceCommand[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
+      };
+    }>(endpoint);
+  },
+
+  // Device Tags
+  async getDeviceTags(deviceId: string): Promise<DeviceTag[]> {
+    const response = await apiRequest<{ data: DeviceTag[] }>(`/api/devices/${deviceId}/tags`);
+    return response.data;
+  },
+
+  async addDeviceTag(deviceId: string, tag: CreateDeviceTagRequest): Promise<DeviceTag> {
+    const response = await apiRequest<{ data: DeviceTag }>(`/api/devices/${deviceId}/tags`, {
+      method: 'POST',
+      body: JSON.stringify(tag),
+    });
+    return response.data;
+  },
+
+  async removeDeviceTag(deviceId: string, tag: string): Promise<{ message: string }> {
+    const response = await apiRequest<{ message: string }>(`/api/devices/${deviceId}/tags/${tag}`, {
+      method: 'DELETE',
+    });
+    return response;
+  },
+
+  // Device Certificates
+  async generateDeviceCertificate(deviceId: string): Promise<DeviceCertificate> {
+    const response = await apiRequest<{ data: DeviceCertificate }>(`/api/devices/${deviceId}/certificates`, {
+      method: 'POST',
+    });
+    return response.data;
+  },
+
+  async getDeviceCertificates(deviceId: string): Promise<DeviceCertificate[]> {
+    const response = await apiRequest<{ data: DeviceCertificate[] }>(`/api/devices/${deviceId}/certificates`);
+    return response.data;
+  },
+
+  async revokeDeviceCertificate(deviceId: string, certificateId: string, reason?: string): Promise<{ message: string }> {
+    const response = await apiRequest<{ message: string }>(`/api/devices/${deviceId}/certificates/${certificateId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    });
+    return response;
+  },
+
+  // Bulk Operations
+  async bulkCreateDevices(devices: CreateDeviceRequest[]): Promise<BulkDeviceOperationResult> {
+    const response = await apiRequest<{ data: BulkDeviceOperationResult }>('/api/devices/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ devices }),
+    });
+    return response.data;
+  },
+
+  async bulkUpdateDevices(deviceIds: string[], updates: UpdateDeviceRequest): Promise<BulkDeviceOperationResult> {
+    const response = await apiRequest<{ data: BulkDeviceOperationResult }>('/api/devices/bulk', {
+      method: 'PUT',
+      body: JSON.stringify({ deviceIds, updates }),
+    });
+    return response.data;
+  },
+
+  async bulkDeleteDevices(deviceIds: string[]): Promise<BulkDeviceOperationResult> {
+    const response = await apiRequest<{ data: BulkDeviceOperationResult }>('/api/devices/bulk', {
+      method: 'DELETE',
+      body: JSON.stringify({ deviceIds }),
+    });
+    return response.data;
+  }
+};
+
+// Device Groups Service
+export const deviceGroupService = {
+  // Get all device groups
+  async getDeviceGroups(): Promise<DeviceGroup[]> {
+    const response = await apiRequest<{ data: DeviceGroup[] }>('/api/device-groups');
+    return response.data;
+  },
+
+  // Create device group
+  async createDeviceGroup(group: CreateDeviceGroupRequest): Promise<DeviceGroup> {
+    const response = await apiRequest<{ data: DeviceGroup }>('/api/device-groups', {
+      method: 'POST',
+      body: JSON.stringify(group),
+    });
+    return response.data;
+  },
+
+  // Update device group
+  async updateDeviceGroup(groupId: string, updates: Partial<CreateDeviceGroupRequest>): Promise<DeviceGroup> {
+    const response = await apiRequest<{ data: DeviceGroup }>(`/api/device-groups/${groupId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+    return response.data;
+  },
+
+  // Delete device group
+  async deleteDeviceGroup(groupId: string): Promise<{ message: string }> {
+    const response = await apiRequest<{ message: string }>(`/api/device-groups/${groupId}`, {
+      method: 'DELETE',
+    });
+    return response;
+  },
+
+  // Assign device to group
+  async assignDeviceToGroup(deviceId: string, groupId: string): Promise<{ id: string; name: string; group_id: string }> {
+    const response = await apiRequest<{ data: { id: string; name: string; group_id: string } }>(`/api/devices/${deviceId}/group`, {
+      method: 'PUT',
+      body: JSON.stringify({ groupId }),
+    });
+    return response.data;
   }
 };
 
@@ -483,6 +795,76 @@ export const automationService = {
     await apiRequest(`/api/automations/${automationId}`, {
       method: 'DELETE',
     });
+  }
+};
+
+// Automation Rules service
+export const automationRuleService = {
+  // Get all automation rules
+  async getAutomationRules(): Promise<AutomationRule[]> {
+    try {
+      const response = await apiRequest<{ data: AutomationRule[]; total: number }>('/api/automation-rules');
+      return response.data || [];
+    } catch (error) {
+      console.warn('Automation rules endpoint not available:', error);
+      return [];
+    }
+  },
+
+  // Get automation rules for a specific geofence
+  async getAutomationRulesForGeofence(geofenceId: string): Promise<AutomationRule[]> {
+    try {
+      const response = await apiRequest<{ data: AutomationRule[]; total: number }>(`/api/automation-rules?geofence_id=${geofenceId}`);
+      return response.data || [];
+    } catch (error) {
+      console.warn('Automation rules endpoint not available:', error);
+      return [];
+    }
+  },
+
+  // Get automation rules for a specific device
+  async getAutomationRulesForDevice(deviceId: string): Promise<AutomationRule[]> {
+    try {
+      const response = await apiRequest<{ data: AutomationRule[]; total: number }>(`/api/automation-rules?device_id=${deviceId}`);
+      return response.data || [];
+    } catch (error) {
+      console.warn('Automation rules endpoint not available:', error);
+      return [];
+    }
+  },
+
+  // Create automation rule
+  async createAutomationRule(rule: CreateAutomationRuleRequest): Promise<AutomationRule> {
+    const response = await apiRequest<{ data: AutomationRule }>('/api/automation-rules', {
+      method: 'POST',
+      body: JSON.stringify(rule),
+    });
+    return response.data;
+  },
+
+  // Update automation rule
+  async updateAutomationRule(ruleId: string, updates: Partial<CreateAutomationRuleRequest>): Promise<AutomationRule> {
+    const response = await apiRequest<{ data: AutomationRule }>(`/api/automation-rules/${ruleId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+    return response.data;
+  },
+
+  // Delete automation rule
+  async deleteAutomationRule(ruleId: string): Promise<void> {
+    await apiRequest(`/api/automation-rules/${ruleId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Toggle automation rule
+  async toggleAutomationRule(ruleId: string, enabled: boolean): Promise<AutomationRule> {
+    const response = await apiRequest<{ data: AutomationRule }>(`/api/automation-rules/${ruleId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    });
+    return response.data;
   }
 };
 

@@ -14,7 +14,7 @@ export const GeofenceSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(1).max(255),
   description: z.string().optional(),
-  organizationId: z.string().uuid(),
+  accountId: z.string().uuid(),
   geometry: z.object({
     type: z.enum(['circle', 'polygon']),
     coordinates: z.union([
@@ -33,7 +33,7 @@ export const AutomationRuleSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(1).max(255),
   description: z.string().optional(),
-  organizationId: z.string().uuid(),
+  accountId: z.string().uuid(),
   geofenceId: z.string().uuid(),
   deviceId: z.string().uuid().optional(),
   integrationId: z.string().uuid(),
@@ -47,7 +47,7 @@ export const IntegrationSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(1).max(255),
   type: z.enum(['notion', 'google_sheets', 'slack', 'whatsapp', 'webhook']),
-  organizationId: z.string().uuid(),
+  accountId: z.string().uuid(),
   config: z.record(z.unknown()),
   credentials: z.record(z.unknown()),
   isActive: z.boolean().default(true)

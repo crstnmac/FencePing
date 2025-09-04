@@ -15,7 +15,7 @@ export function Header({ title, subtitle }: HeaderProps) {
     <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          {/* Organization info */}
+          {/* Account info */}
           {organization && (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-blue-100 rounded-md flex items-center justify-center">
@@ -23,7 +23,7 @@ export function Header({ title, subtitle }: HeaderProps) {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-900">{organization.name}</p>
-                <p className="text-xs text-gray-500">Organization</p>
+                <p className="text-xs text-gray-500">Account</p>
               </div>
             </div>
           )}

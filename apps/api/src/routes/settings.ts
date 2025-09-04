@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getDbClient } from '../db/client.js';
-import { validateBody, requireOrganization } from '../middleware/validation.js';
+import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { hashSync, compareSync } from 'bcryptjs';
 import { generateSecureToken } from '../utils/encryption.js';
@@ -228,10 +228,10 @@ router.post('/profile/password', requireAuth, validateBody(ChangePasswordSchema)
 });
 
 // Get organization settings
-router.get('/organization', requireAuth, requireOrganization, async (req, res) => {
+router.get('/organization', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
 
     const query = `
       SELECT 
@@ -245,13 +245,13 @@ router.get('/organization', requireAuth, requireOrganization, async (req, res) =
         o.created_at,
         o.updated_at,
         COUNT(u.id) as member_count
-      FROM organizations o
+      FROM accounts o
       LEFT JOIN users u ON u.id = o.owner_id
       WHERE o.id = $1
       GROUP BY o.id
     `;
 
-    const result = await client.query(query, [organizationId]);
+    const result = await client.query(query, [accountId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -275,16 +275,16 @@ router.get('/organization', requireAuth, requireOrganization, async (req, res) =
 });
 
 // Update organization settings
-router.put('/organization', requireAuth, requireOrganization, validateBody(UpdateOrganizationSchema), async (req, res) => {
+router.put('/organization', requireAuth, requireAccount, validateBody(UpdateOrganizationSchema), async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
     const { name, timezone, date_format, time_format, distance_unit, data_retention_days } = req.body;
 
     // Check if user is owner
     const ownerCheck = await client.query(
-      'SELECT owner_id FROM organizations WHERE id = $1',
-      [organizationId]
+      'SELECT owner_id FROM accounts WHERE id = $1',
+      [accountId]
     );
 
     if (ownerCheck.rows.length === 0 || ownerCheck.rows[0].owner_id !== req.user!.id) {
@@ -295,7 +295,7 @@ router.put('/organization', requireAuth, requireOrganization, validateBody(Updat
     }
 
     const query = `
-      UPDATE organizations 
+      UPDATE accounts 
       SET 
         name = $1,
         timezone = $2,
@@ -309,7 +309,7 @@ router.put('/organization', requireAuth, requireOrganization, validateBody(Updat
     `;
 
     const result = await client.query(query, [
-      name, timezone, date_format, time_format, distance_unit, data_retention_days, organizationId
+      name, timezone, date_format, time_format, distance_unit, data_retention_days, accountId
     ]);
 
     res.json({
@@ -357,10 +357,10 @@ router.put('/notifications', requireAuth, validateBody(NotificationPreferencesSc
 });
 
 // Get API keys
-router.get('/api-keys', requireAuth, requireOrganization, async (req, res) => {
+router.get('/api-keys', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
 
     const query = `
       SELECT 
@@ -373,11 +373,11 @@ router.get('/api-keys', requireAuth, requireOrganization, async (req, res) => {
         created_at,
         is_active
       FROM api_keys
-      WHERE organization_id = $1 AND revoked_at IS NULL
+      WHERE account_id = $1 AND revoked_at IS NULL
       ORDER BY created_at DESC
     `;
 
-    const result = await client.query(query, [organizationId]);
+    const result = await client.query(query, [accountId]);
 
     res.json({
       success: true,
@@ -394,10 +394,10 @@ router.get('/api-keys', requireAuth, requireOrganization, async (req, res) => {
 });
 
 // Create API key
-router.post('/api-keys', requireAuth, requireOrganization, validateBody(CreateApiKeySchema), async (req, res) => {
+router.post('/api-keys', requireAuth, requireAccount, validateBody(CreateApiKeySchema), async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
     const userId = req.user!.id;
     const { name, permissions, expires_at } = req.body;
 
@@ -407,7 +407,7 @@ router.post('/api-keys', requireAuth, requireOrganization, validateBody(CreateAp
 
     const query = `
       INSERT INTO api_keys (
-        organization_id,
+        account_id,
         created_by,
         name,
         api_key_hash,
@@ -424,7 +424,7 @@ router.post('/api-keys', requireAuth, requireOrganization, validateBody(CreateAp
     const keyHash = hashSync(apiKey, 12);
 
     const result = await client.query(query, [
-      organizationId,
+      accountId,
       userId,
       name,
       keyHash,
@@ -454,20 +454,20 @@ router.post('/api-keys', requireAuth, requireOrganization, validateBody(CreateAp
 });
 
 // Revoke API key
-router.delete('/api-keys/:keyId', requireAuth, requireOrganization, async (req, res) => {
+router.delete('/api-keys/:keyId', requireAuth, requireAccount, async (req, res) => {
   try {
     const client = await getDbClient();
-    const organizationId = req.organizationId!;
+    const accountId = req.accountId!;
     const { keyId } = req.params;
 
     const query = `
       UPDATE api_keys 
       SET revoked_at = NOW(), is_active = false
-      WHERE id = $1 AND organization_id = $2 AND revoked_at IS NULL
+      WHERE id = $1 AND account_id = $2 AND revoked_at IS NULL
       RETURNING id
     `;
 
-    const result = await client.query(query, [keyId, organizationId]);
+    const result = await client.query(query, [keyId, accountId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({

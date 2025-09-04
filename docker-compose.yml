@@ -122,7 +122,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: ./apps/api/Dockerfile
+      dockerfile: ./Dockerfile
     container_name: geofence_api
     restart: unless-stopped
     depends_on:
@@ -145,7 +145,7 @@ services:
   mqtt-ingestion:
     build:
       context: .
-      dockerfile: ./apps/mqtt-ingestion/Dockerfile
+      dockerfile: ./Dockerfile
     container_name: geofence_mqtt_ingestion
     restart: unless-stopped
     depends_on:
@@ -167,7 +167,7 @@ services:
   geofence-engine:
     build:
       context: .
-      dockerfile: ./apps/geofence-engine/Dockerfile
+      dockerfile: ./Dockerfile
     container_name: geofence_geofence_engine
     restart: unless-stopped
     depends_on:
@@ -190,7 +190,7 @@ services:
   automation-workers:
     build:
       context: .
-      dockerfile: ./apps/automation-workers/Dockerfile
+      dockerfile: ./Dockerfile
     container_name: geofence_automation_workers
     restart: unless-stopped
     depends_on:
@@ -216,7 +216,7 @@ services:
   dashboard:
     build:
       context: .
-      dockerfile: ./apps/dashboard/Dockerfile
+      dockerfile: ./Dockerfile
     container_name: geofence_dashboard
     restart: unless-stopped
     depends_on:

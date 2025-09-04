@@ -12,25 +12,26 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "kafkajs": "^2.2.4",
-    "pg": "^8.13.1",
-    "ioredis": "^5.4.1",
-    "dotenv": "^16.4.5",
-    "zod": "^3.23.8",
-    "pino": "^9.5.0",
-    "pino-pretty": "^11.3.0",
+    "@geofence/db": "*",
+    "@geofence/shared": "*",
     "axios": "^1.7.7",
     "bull": "^4.16.3",
-    "@geofence/shared": "*",
-    "@geofence/db": "*"
+    "bullmq": "^5.58.5",
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.13.1",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bull": "^4.10.0",
     "@types/node": "^22.8.0",
     "@types/pg": "^8.11.10",
-    "@types/bull": "^4.10.0",
-    "tsx": "^4.19.2",
+    "eslint": "^9.13.0",
     "tsup": "^8.3.5",
-    "typescript": "^5.6.3",
-    "eslint": "^9.13.0"
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
   }
 }

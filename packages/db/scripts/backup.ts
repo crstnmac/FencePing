@@ -51,7 +51,7 @@ class DatabaseBackup {
 
       // Core tables to backup (order matters for referential integrity)
       const tables = [
-        'organizations',
+        'accounts',
         'users', 
         'devices',
         'geofences',
@@ -76,8 +76,8 @@ class DatabaseBackup {
         const params: any[] = [];
 
         // Filter by organization if specified
-        if (this.options.organizationId && this.hasOrganizationColumn(table)) {
-          query += ` WHERE organization_id = $1`;
+        if (this.options.organizationId && this.hasAccountColumn(table)) {
+          query += ` WHERE account_id = $1`;
           params.push(this.options.organizationId);
         }
 
@@ -124,8 +124,8 @@ class DatabaseBackup {
     }
   }
 
-  private hasOrganizationColumn(table: string): boolean {
-    // Tables that have organization_id column for filtering
+  private hasAccountColumn(table: string): boolean {
+    // Tables that have account_id column for filtering
     const orgTables = ['users', 'devices', 'geofences', 'integrations', 'automations', 'events', 'automation_executions'];
     return orgTables.includes(table);
   }
@@ -150,7 +150,7 @@ async function restore() {
     console.log('✅ Connected to database for restore');
     
     // Backup created: ${backupInfo.timestamp}
-    // Organization: ${backupInfo.organizationId || 'All'}
+    // Account: ${backupInfo.organizationId || 'All'}
     // Tables: ${Object.keys(backupInfo.tables).join(', ')}
     
     const tables = ${JSON.stringify(Object.keys(backupInfo.tables))};
@@ -239,7 +239,7 @@ Options:
 Examples:
   npm run backup                              # Full backup
   npm run backup --no-events                 # Skip events
-  npm run backup --organization abc123       # Organization only
+  npm run backup --organization abc123       # Account only
   npm run backup --output ./my-backups       # Custom output directory
         `);
         process.exit(0);

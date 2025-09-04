@@ -3,4 +3,4 @@
 export { useAuth } from '../contexts/AuthContext';
 
 // Export types for convenience
-export type { User, Organization, LoginRequest, RegisterRequest } from '../services/auth';
+export type { User, Account, LoginRequest, RegisterRequest } from '../services/auth';

@@ -23,6 +23,7 @@
     "dev:dashboard": "turbo dev --filter=@geofence/dashboard",
     "dev:geofence-engine": "turbo dev --filter=@geofence/geofence-engine",
     "dev:automation-workers": "turbo dev --filter=@geofence/automation-workers",
+    "dev:mqtt-ingestion": "turbo dev --filter=@geofence/mqtt-ingestion",
     "build:api": "turbo build --filter=@geofence/api",
     "build:dashboard": "turbo build --filter=@geofence/dashboard",
     "build:geofence-engine": "turbo build --filter=@geofence/geofence-engine",
@@ -36,10 +37,15 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up -d",
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
+    "docker:dev:logs": "docker compose -f docker-compose.dev.yml logs -f",
+    "docker:dev:tools": "docker compose -f docker-compose.dev.yml --profile tools up -d",
     "turbo:daemon": "turbo daemon status",
     "turbo:daemon:start": "turbo daemon start",
     "turbo:daemon:stop": "turbo daemon stop",
-    "turbo:cache:clear": "turbo daemon clean"
+    "turbo:cache:clear": "turbo daemon clean",
+    "test:automation-flow": "node test-automation-flow.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.17.2",
