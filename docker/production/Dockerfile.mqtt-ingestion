@@ -29,7 +29,7 @@ ENV CI=1
 RUN npm run build:packages
 
 # Build MQTT ingestion service
-RUN npm run build --filter=@geofence/mqtt-ingestion
+RUN npm run build:mqtt-ingestion
 
 # Production image
 FROM base AS runner

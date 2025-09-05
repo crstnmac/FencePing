@@ -1,9 +1,14 @@
 # Multi-stage build for Next.js production
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
+
+# Install basic system dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files
@@ -12,12 +17,19 @@ COPY turbo.json ./
 COPY packages/shared/package*.json ./packages/shared/
 COPY apps/dashboard/package*.json ./apps/dashboard/
 
+# Enable corepack to handle packageManager field
+RUN corepack enable npm
+
 # Install dependencies including optional packages
 RUN npm ci --include=optional && npm cache clean --force
 
 # Build the source code
 FROM base AS builder
 WORKDIR /app
+
+# Enable corepack for build stage
+RUN corepack enable npm
+
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 

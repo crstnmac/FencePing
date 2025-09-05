@@ -28,6 +28,7 @@
     "build:dashboard": "turbo build --filter=@geofence/dashboard",
     "build:geofence-engine": "turbo build --filter=@geofence/geofence-engine",
     "build:automation-workers": "turbo build --filter=@geofence/automation-workers",
+    "build:mqtt-ingestion": "turbo build --filter=@geofence/mqtt-ingestion",
     "build:packages": "turbo build --filter='./packages/*'",
     "migrate": "turbo migrate --filter=@geofence/db",
     "migrate:create": "turbo migrate:create --filter=@geofence/db",
