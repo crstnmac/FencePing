@@ -14,12 +14,12 @@ RUN npm ci
 FROM base AS api
 WORKDIR /app
 EXPOSE 3001
-CMD ["npm", "run", "dev:api"]
+CMD ["npm", "run", "dev:api", "--no-deamon"]
 
 FROM base AS dashboard  
 WORKDIR /app
 EXPOSE 3000
-CMD ["npm", "run", "dev:dashboard"]
+CMD ["npm", "run", "dev:dashboard", "--no-deamon"]
 
 FROM base AS mqtt-ingestion
 WORKDIR /app
