@@ -2,7 +2,7 @@ name: geofence-webhooks
 
 services:
   postgres:
-    image: postgis/postgis:latest
+    image: postgis/postgis:15-3.4
     container_name: geofence_postgres
     restart: unless-stopped
     environment:
