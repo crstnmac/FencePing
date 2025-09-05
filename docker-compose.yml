@@ -2,18 +2,18 @@ name: geofence-webhooks
 
 services:
   postgres:
-    image: postgis/postgis:16-3.4-alpine
+    image: postgis/postgis:16-3.4
     container_name: geofence_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: geofence
       POSTGRES_USER: geofence_user
       POSTGRES_PASSWORD: geofence_pass
-      PGDATA: /var/lib/postgresql/data/pgdata
+      PGDATA: /var/lib/postgresql/data
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data/pgdata
+      - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U geofence_user -d geofence"]
