@@ -42,8 +42,8 @@ RUN npx turbo build \
   --filter=@geofence/dashboard \
   --filter=@geofence/mqtt-ingestion \
   --filter=@geofence/geofence-engine \
-  --filter=@geofence/automation-workers \
-  --no-deamon
+  --filter=@geofence/automation-workers 
+
 # ----------------------------
 # 4. Runtime: API service
 # ----------------------------
