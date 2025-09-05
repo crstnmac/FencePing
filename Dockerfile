@@ -20,25 +20,29 @@ RUN npx turbo prune \
   --scope=@geofence/dashboard \
   --scope=@geofence/mqtt-ingestion \
   --scope=@geofence/geofence-engine \
-  --scope=@geofence/automation-workers 
+  --scope=@geofence/automation-workers \
+  --docker --out-dir=out
+
 # ----------------------------
 # 3. Build all apps
 # ----------------------------
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
 # Copy pruned output
-COPY --from=pruner /app/out/json/ .
-COPY --from=pruner /app/out/package-lock.json ./package-lock.json
-COPY --from=pruner /app/out/full/ .
+COPY --from=pruner /app/out/json/ ./
+COPY --from=pruner /app/out/full/ ./
 
 # Install only needed deps
 RUN npm ci --omit=dev
 
 # Build all workspaces
-RUN npx turbo build --filter=@geofence/api --filter=@geofence/dashboard --filter=@geofence/mqtt-ingestion --filter=@geofence/geofence-engine --filter=@geofence/automation-workers
-
+RUN npx turbo build \
+  --filter=@geofence/api \
+  --filter=@geofence/dashboard \
+  --filter=@geofence/mqtt-ingestion \
+  --filter=@geofence/geofence-engine \
+  --filter=@geofence/automation-workers
 # ----------------------------
 # 4. Runtime: API service
 # ----------------------------
