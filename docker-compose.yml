@@ -222,7 +222,7 @@ services:
     depends_on:
       - api
     ports:
-      - "3000:3000"
+      - "3434:3000"
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: http://localhost:3001
