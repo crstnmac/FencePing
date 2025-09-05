@@ -15,13 +15,13 @@ RUN npm ci
 # 2. Prune for production
 # ----------------------------
 FROM base AS pruner
-RUN npx turbo prune \
-  --scope=@geofence/api \
-  --scope=@geofence/dashboard \
-  --scope=@geofence/mqtt-ingestion \
-  --scope=@geofence/geofence-engine \
-  --scope=@geofence/automation-workers \
-  --docker --out-dir=out
+RUN npx turbo build \
+  --filter=@geofence/api \
+  --filter=@geofence/dashboard \
+  --filter=@geofence/mqtt-ingestion \
+  --filter=@geofence/geofence-engine \
+  --filter=@geofence/automation-workers \
+  --docker --out-dir=out --no-deamon
 
 # ----------------------------
 # 3. Build all apps
