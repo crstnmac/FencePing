@@ -2,7 +2,7 @@ name: geofence-dev
 
 services:
   postgres:
-    image: postgis/postgis:16-3.4-alpine
+    image: cloudnative-pg/postgis:15-3.5-177
     container_name: geofence_postgres_dev
     restart: unless-stopped
     environment:
