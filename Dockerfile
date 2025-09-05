@@ -34,7 +34,7 @@ COPY --from=pruner /app/out/json/ ./
 COPY --from=pruner /app/out/full/ ./
 
 # Install only needed deps
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Build all workspaces
 RUN npx turbo build \
