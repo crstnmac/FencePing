@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getDbClient, query, queryWithTimeout } from '../db/client.js';
+import { query, queryWithTimeout } from '@geofence/db';
 import { validateBody } from '../middleware/validation.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { 
@@ -196,10 +196,10 @@ const BulkDeleteDeviceSchema = z.object({
 
 // Bulk create devices
 router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
-    await client.query('BEGIN');
+    await query('BEGIN');
 
     const createdDevices = [];
     const errors = [];
@@ -209,7 +209,7 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
         const deviceData = req.body.devices[i];
         const deviceToken = randomBytes(32).toString('hex');
 
-        const result = await client.query(
+        const result = await query(
           `INSERT INTO devices (name, meta, account_id, device_key)
            VALUES ($1, $2, $3, $4)
            RETURNING id, name, meta, device_key, created_at`,
@@ -233,7 +233,7 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
 
     // Only rollback if all devices failed (maintain consistency)
     if (errors.length > 0 && createdDevices.length === 0) {
-      await client.query('ROLLBACK');
+      await query('ROLLBACK');
       return res.status(400).json({
         success: false,
         error: 'All devices failed to create',
@@ -242,7 +242,7 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
     }
 
     // Commit if at least one device was created successfully
-    await client.query('COMMIT');
+    await query('COMMIT');
 
     res.status(201).json({
       success: true,
@@ -258,7 +258,7 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
     });
   } catch (error) {
     try {
-      await client.query('ROLLBACK');
+      await query('ROLLBACK');
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
@@ -267,17 +267,15 @@ router.post('/bulk', requireAuth, validateBody(BulkCreateDeviceSchema), async (r
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Bulk update devices
 router.put('/bulk', requireAuth, validateBody(BulkUpdateDeviceSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
-    await client.query('BEGIN');
+    await query('BEGIN');
 
     const updates = [];
     const values = [];
@@ -324,9 +322,9 @@ router.put('/bulk', requireAuth, validateBody(BulkUpdateDeviceSchema), async (re
       RETURNING id, name, meta, updated_at
     `;
 
-    const result = await client.query(queryText, values);
+    const result = await query(queryText, values);
 
-    await client.query('COMMIT');
+    await query('COMMIT');
 
     res.json({
       success: true,
@@ -340,7 +338,7 @@ router.put('/bulk', requireAuth, validateBody(BulkUpdateDeviceSchema), async (re
     });
   } catch (error) {
     try {
-      await client.query('ROLLBACK');
+      await query('ROLLBACK');
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
@@ -349,17 +347,15 @@ router.put('/bulk', requireAuth, validateBody(BulkUpdateDeviceSchema), async (re
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Bulk delete devices
 router.delete('/bulk', requireAuth, validateBody(BulkDeleteDeviceSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
-    await client.query('BEGIN');
+    await query('BEGIN');
 
     // Create placeholders for device IDs
     const devicePlaceholders = req.body.deviceIds.map((_: any, index: number) => `$${index + 1}`).join(',');
@@ -371,9 +367,9 @@ router.delete('/bulk', requireAuth, validateBody(BulkDeleteDeviceSchema), async 
       RETURNING id, name
     `;
 
-    const result = await client.query(queryText, values);
+    const result = await query(queryText, values);
 
-    await client.query('COMMIT');
+    await query('COMMIT');
 
     res.json({
       success: true,
@@ -387,7 +383,7 @@ router.delete('/bulk', requireAuth, validateBody(BulkDeleteDeviceSchema), async 
     });
   } catch (error) {
     try {
-      await client.query('ROLLBACK');
+      await query('ROLLBACK');
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
@@ -396,9 +392,7 @@ router.delete('/bulk', requireAuth, validateBody(BulkDeleteDeviceSchema), async 
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Get specific device
@@ -598,7 +592,7 @@ router.post('/pairing/generate',
   async (req, res) => {
   try {
     console.log('Generating pairing code - starting...');
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     console.log('Database client connected');
 
     // For development/testing, get first available account if not set
@@ -607,7 +601,7 @@ router.post('/pairing/generate',
     console.log(`Initial values - accountId: ${accountId}`);
 
     if (!accountId) {
-      const accountResult = await client.query('SELECT id, name FROM accounts ORDER BY created_at LIMIT 1');
+      const accountResult = await query('SELECT id, name FROM accounts ORDER BY created_at LIMIT 1');
       console.log('Account query result:', accountResult.rows);
       if (accountResult.rows.length > 0) {
         accountId = accountResult.rows[0].id;
@@ -624,7 +618,7 @@ router.post('/pairing/generate',
     console.log(`Using accountId: ${accountId}`);
 
     if (!accountId) {
-      const orgResult = await client.query('SELECT id, name FROM accounts ORDER BY created_at LIMIT 1');
+      const orgResult = await query('SELECT id, name FROM accounts ORDER BY created_at LIMIT 1');
       console.log('Organization query result:', orgResult.rows);
       if (orgResult.rows.length > 0) {
         accountId = orgResult.rows[0].id;
@@ -633,7 +627,7 @@ router.post('/pairing/generate',
         // Try to create a default organization if none exist
         console.log('No accounts found, attempting to create default');
         try {
-          const defaultOrgResult = await client.query(
+          const defaultOrgResult = await query(
             'INSERT INTO accounts (name, owner_id) VALUES ($1, (SELECT id FROM users ORDER BY created_at LIMIT 1)) RETURNING id',
             ['Default Organization']
           );
@@ -668,7 +662,7 @@ router.post('/pairing/generate',
 
     if (!createdBy) {
       // For development/testing, get first available user
-      const userResult = await client.query('SELECT id FROM users ORDER BY created_at LIMIT 1');
+      const userResult = await query('SELECT id FROM users ORDER BY created_at LIMIT 1');
       if (userResult.rows.length > 0) {
         createdBy = userResult.rows[0].id;
         console.log(`Using found user for pairing creation: ${createdBy}`);
@@ -682,7 +676,7 @@ router.post('/pairing/generate',
     }
 
     // Create pairing request
-    const result = await client.query(
+    const result = await query(
       `INSERT INTO device_pairing_requests (
         pairing_code, account_id, expires_at, created_by, created_at
       ) VALUES ($1, $2, $3, $4, NOW())
@@ -743,8 +737,8 @@ router.post('/pairing/complete',
 // Get device status and heartbeat
 router.get('/:deviceId/status', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
-    const result = await client.query(
+    // Using query() function for automatic connection management
+    const result = await query(
       `SELECT id, name, status, last_heartbeat, health_metrics, capabilities,
               connection_type, ip_address, mac_address, device_model,
               device_firmware_version, device_os, is_paired,
@@ -795,7 +789,7 @@ router.get('/:deviceId/status', requireAuth, async (req, res) => {
 // Get device location history
 router.get('/:deviceId/locations', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     // Pagination parameters
     const page = parseInt(req.query.page as string) || 1;
@@ -821,7 +815,7 @@ router.get('/:deviceId/locations', requireAuth, async (req, res) => {
     }
     
     // Get location history from events table
-    const result = await client.query(
+    const result = await query(
       `SELECT 
          id,
          ST_X(location) as longitude,
@@ -837,7 +831,7 @@ router.get('/:deviceId/locations', requireAuth, async (req, res) => {
     );
     
     // Get total count
-    const countResult = await client.query(
+    const countResult = await query(
       `SELECT COUNT(*) as total
        FROM events
        ${whereClause}
@@ -872,10 +866,10 @@ router.get('/:deviceId/locations', requireAuth, async (req, res) => {
 // Device heartbeat endpoint
 router.post('/:deviceId/heartbeat', async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const heartbeatData = req.body;
 
-    const result = await client.query(
+    const result = await query(
       `UPDATE devices SET
          last_heartbeat = NOW(),
          health_metrics = COALESCE(health_metrics, '{}')::jsonb || $2::jsonb,
@@ -903,7 +897,7 @@ router.post('/:deviceId/heartbeat', async (req, res) => {
     }
 
     // Update device heartbeats table
-    await client.query(
+    await query(
       `INSERT INTO device_heartbeats (
         device_id, battery_level, connection_strength,
         uptime_seconds, metadata, timestamp
@@ -945,11 +939,11 @@ router.post('/:deviceId/commands',
   validateBody(DeviceCommandSchema), 
   async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const commandId = randomBytes(16).toString('hex');
     
     // Verify device exists and user has permission
-    const deviceResult = await client.query(
+    const deviceResult = await query(
       `SELECT id, name, status FROM devices WHERE id = $1 AND account_id = $2`,
       [req.params.deviceId, req.accountId]
     );
@@ -970,7 +964,7 @@ router.post('/:deviceId/commands',
     }
     
     // Store command in database
-    await client.query(
+    await query(
       `INSERT INTO device_commands (
         id, device_id, command, parameters, status, timeout_seconds, created_at
       ) VALUES ($1, $2, $3, $4, 'pending', $5, NOW())`,
@@ -984,7 +978,7 @@ router.post('/:deviceId/commands',
     );
     
     // Log command event
-    await client.query(
+    await query(
       `INSERT INTO device_events (device_id, event_type, data, created_at)
        VALUES ($1, 'command_sent', $2, NOW())`,
       [
@@ -1021,8 +1015,8 @@ router.post('/:deviceId/commands',
 // Get command status
 router.get('/:deviceId/commands/:commandId', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
-    const result = await client.query(
+    // Using query() function for automatic connection management
+    const result = await query(
       `SELECT dc.*, d.name as device_name
        FROM device_commands dc
        JOIN devices d ON dc.device_id = d.id
@@ -1064,12 +1058,12 @@ router.get('/:deviceId/commands/:commandId', requireAuth, async (req, res) => {
 // List device commands
 router.get('/:deviceId/commands', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
     const offset = (page - 1) * limit;
     
-    const result = await client.query(
+    const result = await query(
       `SELECT 
          id, command, parameters, status, response, error_message,
          created_at, completed_at, timeout_seconds
@@ -1082,7 +1076,7 @@ router.get('/:deviceId/commands', requireAuth, async (req, res) => {
     );
     
     // Get total count
-    const countResult = await client.query(
+    const countResult = await query(
       `SELECT COUNT(*) as total
        FROM device_commands dc
        JOIN devices d ON dc.device_id = d.id
@@ -1123,10 +1117,10 @@ router.post('/:deviceId/share', requireAuth,
     permissions: z.enum(['read', 'write', 'admin'])
   })), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
 
     // Check if current user has admin permission on the device
-    const permissionCheck = await client.query(
+    const permissionCheck = await query(
       `SELECT permissions FROM device_users
        WHERE device_id = $1 AND user_id = $2`,
       [req.params.deviceId, req.user?.id]
@@ -1141,7 +1135,7 @@ router.post('/:deviceId/share', requireAuth,
     }
 
     // Share device
-    await client.query(
+    await query(
       `INSERT INTO device_users (device_id, user_id, permissions, granted_by)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (device_id, user_id) DO UPDATE SET
@@ -1171,8 +1165,8 @@ router.post('/:deviceId/share', requireAuth,
 // Get device users (who has access)
 router.get('/:deviceId/users', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
-    const result = await client.query(
+    // Using query() function for automatic connection management
+    const result = await query(
       `SELECT du.user_id, du.permissions, du.granted_at,
               u.name, u.email
        FROM device_users du
@@ -1222,10 +1216,10 @@ router.put('/:deviceId/group', requireAuth, validateBody(z.object({
   groupId: z.string().uuid()
 })), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     // Verify group exists and belongs to account
-    const groupResult = await client.query(
+    const groupResult = await query(
       `SELECT id FROM device_groups WHERE id = $1 AND account_id = $2`,
       [req.body.groupId, req.accountId]
     );
@@ -1237,7 +1231,7 @@ router.put('/:deviceId/group', requireAuth, validateBody(z.object({
       });
     }
     
-    const result = await client.query(
+    const result = await query(
       `UPDATE devices SET group_id = $1
        WHERE id = $2 AND account_id = $3
        RETURNING id, name, group_id`,
@@ -1269,10 +1263,10 @@ router.put('/:deviceId/group', requireAuth, validateBody(z.object({
 // Add tag to device
 router.post('/:deviceId/tags', requireAuth, validateBody(DeviceTagSchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     // Verify device exists and belongs to account
-    const deviceResult = await client.query(
+    const deviceResult = await query(
       `SELECT id FROM devices WHERE id = $1 AND account_id = $2`,
       [req.params.deviceId, req.accountId]
     );
@@ -1284,7 +1278,7 @@ router.post('/:deviceId/tags', requireAuth, validateBody(DeviceTagSchema), async
       });
     }
     
-    const result = await client.query(
+    const result = await query(
       `INSERT INTO device_tags (device_id, tag, value)
        VALUES ($1, $2, $3)
        ON CONFLICT (device_id, tag) DO UPDATE SET
@@ -1310,9 +1304,9 @@ router.post('/:deviceId/tags', requireAuth, validateBody(DeviceTagSchema), async
 // Get device tags
 router.get('/:deviceId/tags', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
-    const result = await client.query(
+    const result = await query(
       `SELECT dt.tag, dt.value, dt.created_at
        FROM device_tags dt
        JOIN devices d ON dt.device_id = d.id
@@ -1337,9 +1331,9 @@ router.get('/:deviceId/tags', requireAuth, async (req, res) => {
 // Remove device tag
 router.delete('/:deviceId/tags/:tag', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
-    const result = await client.query(
+    const result = await query(
       `DELETE FROM device_tags
        USING devices d
        WHERE device_tags.device_id = d.id
@@ -1375,10 +1369,10 @@ router.delete('/:deviceId/tags/:tag', requireAuth, async (req, res) => {
 // Generate certificate for device
 router.post('/:deviceId/certificates', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     // Verify device exists and user has permission
-    const deviceResult = await client.query(
+    const deviceResult = await query(
       `SELECT id, name FROM devices WHERE id = $1 AND account_id = $2`,
       [req.params.deviceId, req.accountId]
     );
@@ -1395,7 +1389,7 @@ router.post('/:deviceId/certificates', requireAuth, async (req, res) => {
     const certificateSerial = randomBytes(16).toString('hex');
     const expiresAt = new Date(Date.now() + (365 * 24 * 60 * 60 * 1000)); // 1 year
     
-    const result = await client.query(
+    const result = await query(
       `INSERT INTO device_certificates (
         device_id, certificate_serial, certificate_pem, private_key_pem, expires_at
       ) VALUES ($1, $2, $3, $4, $5)
@@ -1430,9 +1424,9 @@ router.post('/:deviceId/certificates', requireAuth, async (req, res) => {
 // Get device certificates
 router.get('/:deviceId/certificates', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
-    const result = await client.query(
+    const result = await query(
       `SELECT dc.id, dc.certificate_serial, dc.issued_at, dc.expires_at, dc.revoked_at, dc.revocation_reason
        FROM device_certificates dc
        JOIN devices d ON dc.device_id = d.id
@@ -1468,9 +1462,9 @@ router.delete('/:deviceId/certificates/:certificateId', requireAuth,
     reason: z.string().max(255).optional()
   })), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
-    const result = await client.query(
+    const result = await query(
       `UPDATE device_certificates 
        SET revoked_at = NOW(), revocation_reason = $1
        FROM devices d
@@ -1495,7 +1489,7 @@ router.delete('/:deviceId/certificates/:certificateId', requireAuth,
     }
     
     // Log certificate revocation
-    await client.query(
+    await query(
       `INSERT INTO device_events (device_id, event_type, data, created_at)
        VALUES ($1, 'security_event', $2, NOW())`,
       [
@@ -1534,7 +1528,7 @@ router.put('/self', requireDeviceAuth, requireDevicePermission(['write']), valid
   meta: z.record(z.any()).optional()
 })), async (req: AuthenticatedRequest, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     const updates = [];
     const values = [];
@@ -1587,7 +1581,7 @@ router.put('/self', requireDeviceAuth, requireDevicePermission(['write']), valid
       RETURNING id, name, device_model, device_firmware_version, device_os, capabilities, meta, updated_at
     `;
     
-    const result = await client.query(queryText, values);
+    const result = await query(queryText, values);
     
     if (result.rowCount === 0) {
       return res.status(404).json({
@@ -1678,11 +1672,11 @@ router.post('/self/commands/:commandId/response', requireDeviceAuth, requireDevi
     error: z.string().optional()
   })), async (req: AuthenticatedRequest, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     const updateTime = req.body.status === 'acknowledged' ? 'acknowledged_at' : 'completed_at';
     
-    const result = await client.query(
+    const result = await query(
       `UPDATE device_commands
        SET 
          status = $1,
@@ -1708,7 +1702,7 @@ router.post('/self/commands/:commandId/response', requireDeviceAuth, requireDevi
     }
     
     // Log command completion event
-    await client.query(
+    await query(
       `INSERT INTO device_events (device_id, event_type, data, created_at)
        VALUES ($1, $2, $3, NOW())`,
       [
@@ -1748,10 +1742,10 @@ router.post('/:deviceKey/location', async (req, res) => {
       });
     }
     
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     // Verify device exists and get account info
-    const deviceResult = await client.query(
+    const deviceResult = await query(
       `SELECT id, account_id, name 
        FROM devices 
        WHERE device_key = $1 AND is_paired = true`,
@@ -1768,7 +1762,7 @@ router.post('/:deviceKey/location', async (req, res) => {
     const device = deviceResult.rows[0];
     
     // Insert location event
-    const locationResult = await client.query(
+    const locationResult = await query(
       `INSERT INTO location_events (
         account_id, device_id, ts, loc, speed_mps, accuracy_m, battery_pct, payload
       ) VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6, $7, $8, $9)
@@ -1787,7 +1781,7 @@ router.post('/:deviceKey/location', async (req, res) => {
     );
     
     // Update device status
-    await client.query(
+    await query(
       `UPDATE devices 
        SET status = 'online', last_heartbeat = NOW()
        WHERE id = $1`,
@@ -1795,7 +1789,7 @@ router.post('/:deviceKey/location', async (req, res) => {
     );
     
     // Check for geofence events (simplified version)
-    const geofenceResult = await client.query(
+    const geofenceResult = await query(
       `SELECT g.id, g.name, g.type,
         ST_Contains(g.geom, ST_SetSRID(ST_MakePoint($1, $2), 4326)) as inside
        FROM geofences g 
@@ -1843,10 +1837,10 @@ router.post('/pairing/validate', async (req, res) => {
       });
     }
     
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     // Find valid pairing request
-    const pairingResult = await client.query(
+    const pairingResult = await query(
       `SELECT id, account_id, expires_at 
        FROM device_pairing_requests 
        WHERE pairing_code = $1 
@@ -1870,7 +1864,7 @@ router.post('/pairing/validate', async (req, res) => {
     ).join('');
     
     // Create device record
-    const deviceResult = await client.query(
+    const deviceResult = await query(
       `INSERT INTO devices (
         name, account_id, device_key, device_type, device_model, 
         connection_type, status, is_paired, created_at
@@ -1889,7 +1883,7 @@ router.post('/pairing/validate', async (req, res) => {
     );
     
     // Mark pairing request as used
-    await client.query(
+    await query(
       `UPDATE device_pairing_requests 
        SET used_at = NOW() 
        WHERE pairing_code = $1`,

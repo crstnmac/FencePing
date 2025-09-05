@@ -1,10 +1,9 @@
 #!/usr/bin/env tsx
 
-import { createDbClient } from '../src/client.js';
+import { getDbClient } from '../src/client.js';
 
 async function fixDeviceTrigger() {
-  const client = createDbClient();
-  await client.connect();
+  const client = await getDbClient();
   
   try {
     console.log('🔧 Fixing device trigger issue...');
@@ -22,7 +21,7 @@ async function fixDeviceTrigger() {
     console.error('❌ Error fixing device trigger:', error);
     throw error;
   } finally {
-    await client.end();
+    client.release();
   }
 }
 

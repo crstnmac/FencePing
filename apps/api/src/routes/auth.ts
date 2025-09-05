@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { compareSync, hashSync } from 'bcryptjs';
 import jwt, { SignOptions, Secret } from "jsonwebtoken";
 import crypto from 'crypto';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { OAuthManager } from '../auth/OAuthManager.js';
@@ -48,56 +48,47 @@ function isRateLimited(identifier: string, maxAttempts: number = 5, windowMs: nu
   return false;
 }
 
-async function createUserSession(userId: string, accountId: string, email: string, req: any, transactionClient?: any): Promise<{ token: string; sessionId: string }> {
-  const client = transactionClient || await getDbClient();
-  const shouldRelease = !transactionClient;
+async function createUserSession(userId: string, accountId: string, email: string, req: any): Promise<{ token: string; sessionId: string }> {
+  // Create session record first to get the UUID
+  const sessionResult = await query(
+    'INSERT INTO user_sessions (user_id, token_hash, expires_at, ip_address, user_agent, last_activity_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+    [
+      userId,
+      'temp', // Temporary placeholder
+      new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)),
+      req.ip || req.connection?.remoteAddress,
+      req.headers['user-agent'],
+      new Date()
+    ]
+  );
 
-  try {
-    // Create session record first to get the UUID
-    const sessionResult = await client.query(
-      'INSERT INTO user_sessions (user_id, token_hash, expires_at, ip_address, user_agent, last_activity_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-      [
-        userId,
-        'temp', // Temporary placeholder
-        new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)),
-        req.ip || req.connection?.remoteAddress,
-        req.headers['user-agent'],
-        new Date()
-      ]
-    );
+  const sessionId = sessionResult.rows[0].id;
 
-    const sessionId = sessionResult.rows[0].id;
+  // Create JWT token with the actual session ID
+  const token = jwt.sign(
+    {
+      userId,
+      email,
+      accountId,
+      sessionId
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN } as SignOptions
+  );
 
-    // Create JWT token with the actual session ID
-    const token = jwt.sign(
-      {
-        userId,
-        email,
-        accountId,
-        sessionId
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN } as SignOptions
-    );
+  // Update session with actual token hash
+  const tokenHash = hashData(token);
+  await query(
+    'UPDATE user_sessions SET token_hash = $1 WHERE id = $2',
+    [tokenHash, sessionId]
+  );
 
-    // Update session with actual token hash
-    const tokenHash = hashData(token);
-    await client.query(
-      'UPDATE user_sessions SET token_hash = $1 WHERE id = $2',
-      [tokenHash, sessionId]
-    );
-
-    return { token, sessionId };
-  } finally {
-    if (shouldRelease) {
-      client.release();
-    }
-  }
+  return { token, sessionId };
 }
 
 // Register new user and organization
 router.post('/register', validateBody(RegisterSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
     const { name, email, password, organization_name } = req.body;
@@ -113,7 +104,7 @@ router.post('/register', validateBody(RegisterSchema), async (req, res) => {
 
     // Check if user already exists
     const existingUserQuery = 'SELECT id FROM users WHERE email = $1';
-    const existingUser = await client.query(existingUserQuery, [email]);
+    const existingUser = await query(existingUserQuery, [email]);
 
     if (existingUser.rows.length > 0) {
       return res.status(409).json({
@@ -127,7 +118,7 @@ router.post('/register', validateBody(RegisterSchema), async (req, res) => {
     const hashedPassword = hashSync(password, saltRounds);
 
     // Start transaction
-    await client.query('BEGIN');
+    await query('BEGIN');
 
     try {
       // Create user
@@ -136,7 +127,7 @@ router.post('/register', validateBody(RegisterSchema), async (req, res) => {
         VALUES ($1, $2, $3)
         RETURNING id, name, email, created_at
       `;
-      const userResult = await client.query(userQuery, [name, email, hashedPassword]);
+      const userResult = await query(userQuery, [name, email, hashedPassword]);
       const user = userResult.rows[0];
 
       // Create account with user as owner
@@ -145,13 +136,13 @@ router.post('/register', validateBody(RegisterSchema), async (req, res) => {
         VALUES ($1, $2)
         RETURNING id, name, created_at
       `;
-      const accountResult = await client.query(accountQuery, [organization_name, user.id]);
+      const accountResult = await query(accountQuery, [organization_name, user.id]);
       const account = accountResult.rows[0];
 
-      // Create session and generate token (pass the transaction client)
-      const { token, sessionId } = await createUserSession(user.id, account.id, user.email, req, client);
+      // Create session and generate token
+      const { token, sessionId } = await createUserSession(user.id, account.id, user.email, req);
 
-      await client.query('COMMIT');
+      await query('COMMIT');
 
       // Clear rate limit on successful registration
       authAttempts.delete(identifier);
@@ -177,7 +168,7 @@ router.post('/register', validateBody(RegisterSchema), async (req, res) => {
       });
 
     } catch (error) {
-      await client.query('ROLLBACK');
+      await query('ROLLBACK');
       throw error;
     }
 
@@ -187,14 +178,12 @@ router.post('/register', validateBody(RegisterSchema), async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Login user
 router.post('/login', validateBody(LoginSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
     const { email, password } = req.body;
@@ -209,7 +198,7 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
     }
 
     // Get user with password hash, organization info, and security fields
-    const query = `
+    const queryText = `
       SELECT
         u.id,
         u.name,
@@ -226,7 +215,7 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
       WHERE u.email = $1
     `;
 
-    const result = await client.query(query, [email]);
+    const result = await query(queryText, [email]);
 
     if (result.rows.length === 0) {
       return res.status(401).json({
@@ -257,7 +246,7 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
         lockUntil.setMinutes(lockUntil.getMinutes() + 30);
       }
 
-      await client.query(
+      await query(
         'UPDATE users SET login_attempts = $1, locked_until = $2 WHERE id = $3',
         [newAttempts, lockUntil, user.id]
       );
@@ -269,7 +258,7 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
     }
 
     // Reset login attempts on successful login
-    await client.query(
+    await query(
       'UPDATE users SET login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = $1',
       [user.id]
     );
@@ -305,19 +294,17 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Logout with session revocation
 router.post('/logout', requireAuth, async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
     if (req.user?.sessionId) {
       // Revoke the current session
-      await client.query(
+      await query(
         'UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1',
         [req.user.sessionId]
       );
@@ -333,20 +320,18 @@ router.post('/logout', requireAuth, async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Verify token and get user info
 router.get('/me', requireAuth, async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
     const userId = req.user!.id;
 
     // Get current user and account info
-    const query = `
+    const queryText = `
       SELECT
         u.id,
         u.name,
@@ -361,7 +346,7 @@ router.get('/me', requireAuth, async (req, res) => {
       WHERE u.id = $1
     `;
 
-    const result = await client.query(query, [userId]);
+    const result = await query(queryText, [userId]);
 
     if (result.rows.length === 0) {
       return res.status(401).json({
@@ -396,9 +381,7 @@ router.get('/me', requireAuth, async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // OAuth Routes

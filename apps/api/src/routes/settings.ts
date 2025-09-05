@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { hashSync, compareSync } from 'bcryptjs';
@@ -52,12 +52,12 @@ const CreateApiKeySchema = z.object({
 
 // Get user profile
 router.get('/profile', requireAuth, async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
     const userId = req.user!.id;
 
-    const query = `
+    const queryText = `
       SELECT
         u.id,
         u.name,
@@ -71,7 +71,7 @@ router.get('/profile', requireAuth, async (req, res) => {
       WHERE u.id = $1
     `;
 
-    const result = await client.query(query, [userId]);
+    const result = await query(queryText, [userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -109,14 +109,12 @@ router.get('/profile', requireAuth, async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Update user profile
 router.put('/profile', requireAuth, validateBody(UpdateProfileSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
     const userId = req.user!.id;
@@ -124,7 +122,7 @@ router.put('/profile', requireAuth, validateBody(UpdateProfileSchema), async (re
 
     // Check if email is already taken by another user
     if (email !== req.user!.email) {
-      const emailCheck = await client.query(
+      const emailCheck = await query(
         'SELECT id FROM users WHERE email = $1 AND id != $2',
         [email, userId]
       );
@@ -137,14 +135,14 @@ router.put('/profile', requireAuth, validateBody(UpdateProfileSchema), async (re
       }
     }
 
-    const query = `
+    const queryText = `
       UPDATE users
       SET name = $1, email = $2, timezone = $3, phone = $4, updated_at = NOW()
       WHERE id = $5
       RETURNING id, name, email, timezone, phone, updated_at
     `;
 
-    const result = await client.query(query, [name, email, timezone, phone, userId]);
+    const result = await query(queryText, [name, email, timezone, phone, userId]);
 
     res.json({
       success: true,
@@ -157,21 +155,19 @@ router.put('/profile', requireAuth, validateBody(UpdateProfileSchema), async (re
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Change password
 router.post('/profile/password', requireAuth, validateBody(ChangePasswordSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
     const userId = req.user!.id;
     const { currentPassword, newPassword } = req.body;
 
     // Get current password hash
-    const userQuery = await client.query(
+    const userQuery = await query(
       'SELECT password_hash FROM users WHERE id = $1',
       [userId]
     );
@@ -198,22 +194,22 @@ router.post('/profile/password', requireAuth, validateBody(ChangePasswordSchema)
     const newPasswordHash = hashSync(newPassword, saltRounds);
 
     // Update password and revoke all sessions except current
-    await client.query('BEGIN');
+    await query('BEGIN');
 
     try {
       // Update password
-      await client.query(
+      await query(
         'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
         [newPasswordHash, userId]
       );
 
       // Revoke all other sessions except current
-      await client.query(
+      await query(
         'UPDATE user_sessions SET revoked_at = NOW() WHERE user_id = $1 AND id != $2',
         [userId, req.user!.sessionId]
       );
 
-      await client.query('COMMIT');
+      await query('COMMIT');
 
       res.json({
         success: true,
@@ -221,7 +217,7 @@ router.post('/profile/password', requireAuth, validateBody(ChangePasswordSchema)
       });
 
     } catch (error) {
-      await client.query('ROLLBACK');
+      await query('ROLLBACK');
       throw error;
     }
 
@@ -231,18 +227,16 @@ router.post('/profile/password', requireAuth, validateBody(ChangePasswordSchema)
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Get organization settings
 router.get('/organization', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const accountId = req.accountId!;
 
-    const query = `
+    const queryText = `
       SELECT 
         o.id,
         o.name,
@@ -260,7 +254,7 @@ router.get('/organization', requireAuth, requireAccount, async (req, res) => {
       GROUP BY o.id
     `;
 
-    const result = await client.query(query, [accountId]);
+    const result = await query(queryText, [accountId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -286,12 +280,12 @@ router.get('/organization', requireAuth, requireAccount, async (req, res) => {
 // Update organization settings
 router.put('/organization', requireAuth, requireAccount, validateBody(UpdateOrganizationSchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const accountId = req.accountId!;
     const { name, timezone, date_format, time_format, distance_unit, data_retention_days } = req.body;
 
     // Check if user is owner
-    const ownerCheck = await client.query(
+    const ownerCheck = await query(
       'SELECT owner_id FROM accounts WHERE id = $1',
       [accountId]
     );
@@ -303,7 +297,7 @@ router.put('/organization', requireAuth, requireAccount, validateBody(UpdateOrga
       });
     }
 
-    const query = `
+    const queryText = `
       UPDATE accounts 
       SET 
         name = $1,
@@ -317,7 +311,7 @@ router.put('/organization', requireAuth, requireAccount, validateBody(UpdateOrga
       RETURNING *
     `;
 
-    const result = await client.query(query, [
+    const result = await query(queryText, [
       name, timezone, date_format, time_format, distance_unit, data_retention_days, accountId
     ]);
 
@@ -338,18 +332,18 @@ router.put('/organization', requireAuth, requireAccount, validateBody(UpdateOrga
 // Update notification preferences
 router.put('/notifications', requireAuth, validateBody(NotificationPreferencesSchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const userId = req.user!.id;
     const preferences = req.body;
 
-    const query = `
+    const queryText = `
       UPDATE users 
       SET notification_preferences = $1, updated_at = NOW()
       WHERE id = $2
       RETURNING notification_preferences
     `;
 
-    const result = await client.query(query, [JSON.stringify(preferences), userId]);
+    const result = await query(queryText, [JSON.stringify(preferences), userId]);
 
     res.json({
       success: true,
@@ -368,10 +362,10 @@ router.put('/notifications', requireAuth, validateBody(NotificationPreferencesSc
 // Get API keys
 router.get('/api-keys', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const accountId = req.accountId!;
 
-    const query = `
+    const queryText = `
       SELECT 
         id,
         name,
@@ -386,7 +380,7 @@ router.get('/api-keys', requireAuth, requireAccount, async (req, res) => {
       ORDER BY created_at DESC
     `;
 
-    const result = await client.query(query, [accountId]);
+    const result = await query(queryText, [accountId]);
 
     res.json({
       success: true,
@@ -405,7 +399,7 @@ router.get('/api-keys', requireAuth, requireAccount, async (req, res) => {
 // Create API key
 router.post('/api-keys', requireAuth, requireAccount, validateBody(CreateApiKeySchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const accountId = req.accountId!;
     const userId = req.user!.id;
     const { name, permissions, expires_at } = req.body;
@@ -414,7 +408,7 @@ router.post('/api-keys', requireAuth, requireAccount, validateBody(CreateApiKeyS
     const apiKey = `gf_${generateSecureToken(32)}`;
     const keyPrefix = apiKey.substring(0, 12) + '...';
 
-    const query = `
+    const queryText = `
       INSERT INTO api_keys (
         account_id,
         created_by,
@@ -432,7 +426,7 @@ router.post('/api-keys', requireAuth, requireAccount, validateBody(CreateApiKeyS
     // Hash the API key for storage
     const keyHash = hashSync(apiKey, 12);
 
-    const result = await client.query(query, [
+    const result = await query(queryText, [
       accountId,
       userId,
       name,
@@ -465,18 +459,18 @@ router.post('/api-keys', requireAuth, requireAccount, validateBody(CreateApiKeyS
 // Revoke API key
 router.delete('/api-keys/:keyId', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const accountId = req.accountId!;
     const { keyId } = req.params;
 
-    const query = `
+    const queryText = `
       UPDATE api_keys 
       SET revoked_at = NOW(), is_active = false
       WHERE id = $1 AND account_id = $2 AND revoked_at IS NULL
       RETURNING id
     `;
 
-    const result = await client.query(query, [keyId, accountId]);
+    const result = await query(queryText, [keyId, accountId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -502,10 +496,10 @@ router.delete('/api-keys/:keyId', requireAuth, requireAccount, async (req, res) 
 // Get active sessions
 router.get('/sessions', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const userId = req.user!.id;
 
-    const query = `
+    const queryText = `
       SELECT 
         id,
         ip_address,
@@ -519,7 +513,7 @@ router.get('/sessions', requireAuth, async (req, res) => {
       ORDER BY last_activity_at DESC NULLS LAST, created_at DESC
     `;
 
-    const result = await client.query(query, [userId, req.user!.sessionId]);
+    const result = await query(queryText, [userId, req.user!.sessionId]);
 
     res.json({
       success: true,
@@ -538,7 +532,7 @@ router.get('/sessions', requireAuth, async (req, res) => {
 // Revoke session
 router.delete('/sessions/:sessionId', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const userId = req.user!.id;
     const { sessionId } = req.params;
 
@@ -550,14 +544,14 @@ router.delete('/sessions/:sessionId', requireAuth, async (req, res) => {
       });
     }
 
-    const query = `
+    const queryText = `
       UPDATE user_sessions 
       SET revoked_at = NOW()
       WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL
       RETURNING id
     `;
 
-    const result = await client.query(query, [sessionId, userId]);
+    const result = await query(queryText, [sessionId, userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -583,17 +577,17 @@ router.delete('/sessions/:sessionId', requireAuth, async (req, res) => {
 // Revoke all other sessions
 router.post('/sessions/revoke-all', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const userId = req.user!.id;
 
-    const query = `
+    const queryText = `
       UPDATE user_sessions 
       SET revoked_at = NOW()
       WHERE user_id = $1 AND id != $2 AND revoked_at IS NULL
       RETURNING count(*)
     `;
 
-    const result = await client.query(query, [userId, req.user!.sessionId]);
+    const result = await query(queryText, [userId, req.user!.sessionId]);
 
     res.json({
       success: true,

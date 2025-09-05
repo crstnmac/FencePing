@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 import { validateQuery, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getKafkaProducer } from '../kafka/producer.js';
@@ -37,14 +37,14 @@ const ERROR_RESPONSES = {
 // Get events with filtering and pagination
 router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const { limit, offset, device_id, geofence_id, event_type, from_date, to_date } = req.query as any;
     
     // For development, get the first available organization if no auth
     let accountId = req.accountId;
     
     if (!accountId) {
-      const orgResult = await client.query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
+      const orgResult = await query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (orgResult.rows.length > 0) {
         accountId = orgResult.rows[0].id;
       } else {
@@ -83,7 +83,7 @@ router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), a
       values.push(to_date);
     }
     
-    const query = `
+    const queryText = `
       SELECT
         ge.id,
         ge.type as event_type,
@@ -107,7 +107,7 @@ router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), a
     `;
     
     values.push(limit, offset);
-    const result = await client.query(query, values);
+    const result = await query(queryText, values);
     
     const events = result.rows.map(row => ({
       id: row.id,
@@ -153,8 +153,8 @@ router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), a
 // Get specific event
 router.get('/:eventId', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
-    const query = `
+    // Using query() function for automatic connection management
+    const queryText = `
       SELECT 
         ge.id,
         ge.type as event_type,
@@ -176,7 +176,7 @@ router.get('/:eventId', requireAuth, requireAccount, async (req, res) => {
       AND (d.account_id = $2 OR g.account_id = $2)
     `;
     
-    const result = await client.query(query, [req.params.eventId, req.accountId]);
+    const result = await query(queryText, [req.params.eventId, req.accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -225,7 +225,7 @@ router.get('/:eventId', requireAuth, requireAccount, async (req, res) => {
 // Replay event (trigger automation processing again)
 router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     // First, verify the event exists and belongs to the organization
     const eventQuery = `
@@ -244,7 +244,7 @@ router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) =>
       WHERE ge.id = $1 AND d.account_id = $2
     `;
     
-    const eventResult = await client.query(eventQuery, [req.params.eventId, req.accountId]);
+    const eventResult = await query(eventQuery, [req.params.eventId, req.accountId]);
     
     if (eventResult.rows.length === 0) {
       return res.status(404).json({
@@ -292,7 +292,7 @@ router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) =>
       RETURNING id
     `;
     
-    const replayResult = await client.query(replayQuery, [
+    const replayResult = await query(replayQuery, [
       event.event_type,
       event.device_id,
       event.geofence_id,
@@ -322,8 +322,8 @@ router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) =>
 // Get automation execution history for events
 router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
-    const query = `
+    // Using query() function for automatic connection management
+    const queryText = `
       SELECT 
         d_exec.id,
         d_exec.status,
@@ -344,7 +344,7 @@ router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res)
       ORDER BY d_exec.created_at DESC
     `;
     
-    const result = await client.query(query, [req.params.eventId, req.accountId]);
+    const result = await query(queryText, [req.params.eventId, req.accountId]);
     
     if (result.rows.length === 0) {
       // Check if the event exists at all
@@ -354,7 +354,7 @@ router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res)
         JOIN devices d ON ge.device_id = d.id
         WHERE ge.id = $1 AND d.account_id = $2
       `;
-      const eventExists = await client.query(eventExistsQuery, [req.params.eventId, req.accountId]);
+      const eventExists = await query(eventExistsQuery, [req.params.eventId, req.accountId]);
       
       if (eventExists.rows.length === 0) {
         return res.status(404).json({
@@ -398,14 +398,14 @@ router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res)
 // Get real-time events for dashboard
 router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const limit = Math.min(parseInt(req.query.limit as string || '50'), 100);
     
     // For development, get the first available organization if no auth
     let accountId = req.accountId;
     
     if (!accountId) {
-      const orgResult = await client.query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
+      const orgResult = await query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (orgResult.rows.length > 0) {
         accountId = orgResult.rows[0].id;
       } else {
@@ -416,7 +416,7 @@ router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
       }
     }
     
-    const query = `
+    const queryText = `
       SELECT 
         ge.id,
         ge.type,
@@ -440,7 +440,7 @@ router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
       LIMIT $2
     `;
     
-    const result = await client.query(query, [accountId, limit]);
+    const result = await query(queryText, [accountId, limit]);
     
     const events = result.rows.map(row => {
       // Map database event types to frontend event types

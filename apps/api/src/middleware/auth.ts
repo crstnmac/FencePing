@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 import { auth } from '../config/index.js';
 
 const JWT_SECRET = auth.JWT_SECRET;
@@ -33,13 +33,12 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
       
       // Check if session exists and is not revoked
-      const client = await getDbClient();
       const sessionQuery = `
         SELECT id, revoked_at, expires_at
         FROM user_sessions 
         WHERE token_hash = $1 AND user_id = $2 AND revoked_at IS NULL
       `;
-      const sessionResult = await client.query(sessionQuery, [tokenHash, decoded.userId]);
+      const sessionResult = await query(sessionQuery, [tokenHash, decoded.userId]);
       
       if (sessionResult.rows.length === 0) {
         return res.status(401).json({
@@ -52,7 +51,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       
       // Check if session has expired
       if (new Date() > new Date(session.expires_at)) {
-        await client.query(
+        await query(
           'UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1',
           [session.id]
         );
@@ -66,7 +65,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       const userQuery = `
         SELECT locked_until FROM users WHERE id = $1
       `;
-      const userResult = await client.query(userQuery, [decoded.userId]);
+      const userResult = await query(userQuery, [decoded.userId]);
       
       if (userResult.rows.length > 0 && userResult.rows[0].locked_until) {
         if (new Date() < new Date(userResult.rows[0].locked_until)) {
@@ -101,7 +100,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       success: false,
       error: 'Internal server error'
     });
-  }};
+  }
+};
 
 export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -118,13 +118,12 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
       const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
       
       // Check session validity (same as requireAuth but non-blocking)
-      const client = await getDbClient();
       const sessionQuery = `
         SELECT id, revoked_at, expires_at
         FROM user_sessions 
         WHERE token_hash = $1 AND user_id = $2 AND revoked_at IS NULL
       `;
-      const sessionResult = await client.query(sessionQuery, [tokenHash, decoded.userId]);
+      const sessionResult = await query(sessionQuery, [tokenHash, decoded.userId]);
       
       if (sessionResult.rows.length > 0) {
         const session = sessionResult.rows[0];

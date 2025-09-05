@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import { URLSearchParams } from 'url';
 import axios from 'axios';
-import { getDbClient } from '../db/client.js';
 import { encryptCredentials, decryptCredentials } from '../utils/encryption.js';
 import { oauth, urls } from '../config/index.js';
 
@@ -121,7 +120,6 @@ export class OAuthManager {
     }
 
     // Get existing tokens from database
-    const client = await getDbClient();
     const tokenQuery = `
       SELECT credentials, security_metadata, id as automation_id
       FROM automations
@@ -132,7 +130,7 @@ export class OAuthManager {
       LIMIT 1
     `;
 
-    const tokenResult = await client.query(tokenQuery, [accountId, provider]);
+    const tokenResult = await query(tokenQuery, [accountId, provider]);
     
     if (tokenResult.rows.length === 0) {
       throw new Error(`No integration found for ${provider}`);
@@ -279,7 +277,6 @@ export class OAuthManager {
     tokens: OAuthTokens,
     integrationId?: string
   ): Promise<void> {
-    const client = await getDbClient();
     
     const credentials = {
       access_token: tokens.accessToken,
@@ -301,7 +298,7 @@ export class OAuthManager {
 
     if (integrationId) {
       // Update existing automation
-      await client.query(
+      await query(
         'UPDATE automations SET credentials = $1, security_metadata = $2, updated_at = NOW() WHERE id = $3 AND account_id = $4',
         [encryptedCredentials, JSON.stringify(securityMetadata), integrationId, accountId]
       );
@@ -317,7 +314,7 @@ export class OAuthManager {
           updated_at = NOW()
       `;
 
-      await client.query(upsertQuery, [
+      await query(upsertQuery, [
         `${provider.charAt(0).toUpperCase() + provider.slice(1)} Integration`,
         provider,
         accountId,
@@ -328,10 +325,9 @@ export class OAuthManager {
   }
 
   async revokeTokens(provider: string, accountId: string): Promise<void> {
-    const client = await getDbClient();
     
     // First, get the current credentials so we can revoke them with the provider
-    const result = await client.query(
+    const result = await query(
       'SELECT credentials, security_metadata FROM automations WHERE account_id = $1 AND kind = $2',
       [accountId, provider]
     );
@@ -367,7 +363,7 @@ export class OAuthManager {
     }
 
     // Remove credentials from database and mark as inactive
-    await client.query(
+    await query(
       'UPDATE automations SET credentials = NULL, security_metadata = \'{"revoked": true, "revoked_at": "' + new Date().toISOString() + '"}\', enabled = false WHERE account_id = $1 AND kind = $2',
       [accountId, provider]
     );

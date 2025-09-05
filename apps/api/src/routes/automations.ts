@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getDbClient } from '../db/client.js';
+import { query as dbQuery } from '@geofence/db';
 import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -59,10 +59,8 @@ const UpdateAutomationRuleSchema = z.object({
 
 // Get all automations for organization
 router.get('/', requireAuth, requireAccount, async (req, res) => {
-  try {
-    const client = await getDbClient();
-    
-    const query = `
+  try {    
+    const queryText = `
       SELECT 
         id,
         name,
@@ -75,7 +73,7 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
       ORDER BY created_at DESC
     `;
     
-    const result = await client.query(query, [req.accountId]);
+    const result = await dbQuery(queryText, [req.accountId]);
     
     res.json({
       success: true,
@@ -94,20 +92,20 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
 
 // Create new automation
 router.post('/', requireAuth, requireAccount, validateBody(CreateAutomationSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
-    await client.query('BEGIN');
+    await dbQuery('BEGIN');
 
     const { name, kind, config, enabled } = req.body;
 
-    const query = `
+    const queryText = `
       INSERT INTO automations (account_id, name, kind, config, enabled, created_at)
       VALUES ($1, $2, $3, $4, $5, NOW())
       RETURNING id, name, kind, config, enabled, created_at
     `;
 
-    const result = await client.query(query, [
+    const result = await dbQuery(queryText, [
       req.accountId,
       name,
       kind,
@@ -115,7 +113,7 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateAutomationSchem
       enabled
     ]);
 
-    await client.query('COMMIT');
+    await dbQuery('COMMIT');
 
     res.status(201).json({
       success: true,
@@ -124,7 +122,7 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateAutomationSchem
 
   } catch (error) {
     try {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
@@ -133,17 +131,15 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateAutomationSchem
       success: false,
       error: 'Failed to create automation'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Get specific automation
 router.get('/:automationId', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
-    const query = `
+    const queryText = `
       SELECT 
         a.id,
         a.name,
@@ -158,7 +154,7 @@ router.get('/:automationId', requireAuth, requireAccount, async (req, res) => {
       GROUP BY a.id, a.name, a.kind, a.config, a.enabled, a.created_at
     `;
     
-    const result = await client.query(query, [req.params.automationId, req.accountId]);
+    const result = await dbQuery(queryText, [req.params.automationId, req.accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -183,10 +179,10 @@ router.get('/:automationId', requireAuth, requireAccount, async (req, res) => {
 
 // Update automation
 router.put('/:automationId', requireAuth, requireAccount, validateBody(UpdateAutomationSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
-    await client.query('BEGIN');
+    await dbQuery('BEGIN');
 
     const updates = req.body;
 
@@ -215,24 +211,24 @@ router.put('/:automationId', requireAuth, requireAccount, validateBody(UpdateAut
 
     values.push(req.params.automationId, req.accountId);
 
-    const query = `
+    const queryText = `
       UPDATE automations
       SET ${setClause.join(', ')}
       WHERE id = $${paramCount} AND account_id = $${paramCount + 1}
       RETURNING id, name, kind, config, enabled, created_at
     `;
 
-    const result = await client.query(query, values);
+    const result = await dbQuery(queryText, values);
 
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
       return res.status(404).json({
         success: false,
         error: 'Automation not found'
       });
     }
 
-    await client.query('COMMIT');
+    await dbQuery('COMMIT');
 
     res.json({
       success: true,
@@ -241,7 +237,7 @@ router.put('/:automationId', requireAuth, requireAccount, validateBody(UpdateAut
 
   } catch (error) {
     try {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
@@ -250,35 +246,33 @@ router.put('/:automationId', requireAuth, requireAccount, validateBody(UpdateAut
       success: false,
       error: 'Failed to update automation'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Delete automation
 router.delete('/:automationId', requireAuth, requireAccount, async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
-    await client.query('BEGIN');
+    await dbQuery('BEGIN');
 
-    const query = `
+    const queryText = `
       DELETE FROM automations
       WHERE id = $1 AND account_id = $2
       RETURNING id
     `;
 
-    const result = await client.query(query, [req.params.automationId, req.accountId]);
+    const result = await dbQuery(queryText, [req.params.automationId, req.accountId]);
 
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
       return res.status(404).json({
         success: false,
         error: 'Automation not found'
       });
     }
 
-    await client.query('COMMIT');
+    await dbQuery('COMMIT');
 
     res.json({
       success: true,
@@ -287,7 +281,7 @@ router.delete('/:automationId', requireAuth, requireAccount, async (req, res) =>
 
   } catch (error) {
     try {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
@@ -296,9 +290,7 @@ router.delete('/:automationId', requireAuth, requireAccount, async (req, res) =>
       success: false,
       error: 'Failed to delete automation'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Automation Rules Management
@@ -306,9 +298,9 @@ router.delete('/:automationId', requireAuth, requireAccount, async (req, res) =>
 // Get automation rules for a specific automation
 router.get('/:automationId/rules', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
-    const query = `
+    const queryText = `
       SELECT 
         ar.id,
         ar.name,
@@ -328,7 +320,7 @@ router.get('/:automationId/rules', requireAuth, requireAccount, async (req, res)
       ORDER BY ar.name
     `;
     
-    const result = await client.query(query, [req.params.automationId, req.accountId]);
+    const result = await dbQuery(queryText, [req.params.automationId, req.accountId]);
     
     res.json({
       success: true,
@@ -346,28 +338,28 @@ router.get('/:automationId/rules', requireAuth, requireAccount, async (req, res)
 
 // Create automation rule
 router.post('/:automationId/rules', requireAuth, requireAccount, validateBody(CreateAutomationRuleSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
-    await client.query('BEGIN');
+    await dbQuery('BEGIN');
 
     const { name, geofence_id, device_id, on_events, min_dwell_seconds, device_filter, enabled } = req.body;
 
     // Verify automation exists and belongs to user
-    const automationCheck = await client.query(
+    const automationCheck = await query(
       'SELECT id FROM automations WHERE id = $1 AND account_id = $2',
       [req.params.automationId, req.accountId]
     );
 
     if (automationCheck.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
       return res.status(404).json({
         success: false,
         error: 'Automation not found'
       });
     }
 
-    const query = `
+    const queryText = `
       INSERT INTO automation_rules (
         name, account_id, geofence_id, device_id, automation_id,
         on_events, min_dwell_seconds, device_filter, enabled
@@ -375,7 +367,7 @@ router.post('/:automationId/rules', requireAuth, requireAccount, validateBody(Cr
       RETURNING id, name, geofence_id, device_id, on_events, min_dwell_seconds, device_filter, enabled
     `;
 
-    const result = await client.query(query, [
+    const result = await dbQuery(queryText, [
       name,
       req.accountId,
       geofence_id,
@@ -387,7 +379,7 @@ router.post('/:automationId/rules', requireAuth, requireAccount, validateBody(Cr
       enabled
     ]);
 
-    await client.query('COMMIT');
+    await dbQuery('COMMIT');
 
     res.status(201).json({
       success: true,
@@ -396,7 +388,7 @@ router.post('/:automationId/rules', requireAuth, requireAccount, validateBody(Cr
 
   } catch (error) {
     try {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
@@ -405,17 +397,15 @@ router.post('/:automationId/rules', requireAuth, requireAccount, validateBody(Cr
       success: false,
       error: 'Failed to create automation rule'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Update automation rule
 router.put('/:automationId/rules/:ruleId', requireAuth, requireAccount, validateBody(UpdateAutomationRuleSchema), async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
-    await client.query('BEGIN');
+    await dbQuery('BEGIN');
 
     const updates = req.body;
 
@@ -436,7 +426,7 @@ router.put('/:automationId/rules/:ruleId', requireAuth, requireAccount, validate
     }
 
     if (setClause.length === 0) {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
       return res.status(400).json({
         success: false,
         error: 'No valid fields to update'
@@ -445,24 +435,24 @@ router.put('/:automationId/rules/:ruleId', requireAuth, requireAccount, validate
 
     values.push(req.params.ruleId, req.params.automationId, req.accountId);
 
-    const query = `
+    const queryText = `
       UPDATE automation_rules
       SET ${setClause.join(', ')}
       WHERE id = $${paramCount} AND automation_id = $${paramCount + 1} AND account_id = $${paramCount + 2}
       RETURNING id, name, geofence_id, device_id, on_events, min_dwell_seconds, device_filter, enabled
     `;
 
-    const result = await client.query(query, values);
+    const result = await dbQuery(queryText, values);
 
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
       return res.status(404).json({
         success: false,
         error: 'Automation rule not found'
       });
     }
 
-    await client.query('COMMIT');
+    await dbQuery('COMMIT');
 
     res.json({
       success: true,
@@ -471,7 +461,7 @@ router.put('/:automationId/rules/:ruleId', requireAuth, requireAccount, validate
 
   } catch (error) {
     try {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
@@ -480,39 +470,37 @@ router.put('/:automationId/rules/:ruleId', requireAuth, requireAccount, validate
       success: false,
       error: 'Failed to update automation rule'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 // Delete automation rule
 router.delete('/:automationId/rules/:ruleId', requireAuth, requireAccount, async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
-    await client.query('BEGIN');
+    await dbQuery('BEGIN');
 
-    const query = `
+    const queryText = `
       DELETE FROM automation_rules
       WHERE id = $1 AND automation_id = $2 AND account_id = $3
       RETURNING id
     `;
 
-    const result = await client.query(query, [
+    const result = await dbQuery(queryText, [
       req.params.ruleId,
       req.params.automationId,
       req.accountId
     ]);
 
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
       return res.status(404).json({
         success: false,
         error: 'Automation rule not found'
       });
     }
 
-    await client.query('COMMIT');
+    await dbQuery('COMMIT');
 
     res.json({
       success: true,
@@ -521,7 +509,7 @@ router.delete('/:automationId/rules/:ruleId', requireAuth, requireAccount, async
 
   } catch (error) {
     try {
-      await client.query('ROLLBACK');
+      await dbQuery('ROLLBACK');
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
@@ -530,9 +518,7 @@ router.delete('/:automationId/rules/:ruleId', requireAuth, requireAccount, async
       success: false,
       error: 'Failed to delete automation rule'
     });
-  } finally {
-    client.release();
-  }
+  } finally {  }
 });
 
 export { router as automationRoutes };

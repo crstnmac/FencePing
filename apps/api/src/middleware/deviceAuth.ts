@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 import { auth } from '../config/index.js';
 import { DeviceJWTPayload } from '../utils/deviceAuth.js';
 import { hashData } from '../utils/encryption.js';
@@ -49,10 +49,9 @@ export const requireDeviceAuth = async (req: AuthenticatedRequest, res: Response
     }
 
     // Check if session exists and is not revoked
-    const client = await getDbClient();
     const tokenHash = hashData(token);
     
-    const sessionResult = await client.query(
+    const sessionResult = await query(
       `SELECT ds.*, d.name as device_name, d.status as device_status
        FROM device_sessions ds
        JOIN devices d ON ds.device_id = d.id
@@ -72,7 +71,7 @@ export const requireDeviceAuth = async (req: AuthenticatedRequest, res: Response
     const session = sessionResult.rows[0];
 
     // Update last used timestamp
-    await client.query(
+    await query(
       'UPDATE device_sessions SET last_used_at = NOW() WHERE id = $1',
       [session.id]
     );
@@ -143,10 +142,9 @@ export const optionalDeviceAuth = async (req: AuthenticatedRequest, res: Respons
       const payload = jwt.verify(token, auth.JWT_SECRET) as DeviceJWTPayload;
       
       // Check if session exists
-      const client = await getDbClient();
       const tokenHash = hashData(token);
       
-      const sessionResult = await client.query(
+      const sessionResult = await query(
         `SELECT ds.*, d.name as device_name
          FROM device_sessions ds
          JOIN devices d ON ds.device_id = d.id
@@ -158,7 +156,7 @@ export const optionalDeviceAuth = async (req: AuthenticatedRequest, res: Respons
 
       if (sessionResult.rows.length > 0) {
         // Update last used timestamp
-        await client.query(
+        await query(
           'UPDATE device_sessions SET last_used_at = NOW() WHERE id = $1',
           [sessionResult.rows[0].id]
         );

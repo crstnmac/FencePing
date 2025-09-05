@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 import { validateBody } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -17,8 +17,7 @@ const DeviceGroupSchema = z.object({
 // Get all device groups
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const client = await getDbClient();
-    const result = await client.query(
+    const result = await query(
       `SELECT dg.*, COUNT(d.id) as device_count
        FROM device_groups dg
        LEFT JOIN devices d ON dg.id = d.group_id AND d.account_id = $1
@@ -54,8 +53,7 @@ router.get('/', requireAuth, async (req, res) => {
 // Create device group
 router.post('/', requireAuth, validateBody(DeviceGroupSchema), async (req, res) => {
   try {
-    const client = await getDbClient();
-    const result = await client.query(
+    const result = await query(
       `INSERT INTO device_groups (name, description, account_id, color, icon, metadata)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, name, description, color, icon, metadata, created_at, updated_at`,
@@ -91,7 +89,7 @@ router.post('/', requireAuth, validateBody(DeviceGroupSchema), async (req, res) 
 // Update device group
 router.put('/:groupId', requireAuth, validateBody(DeviceGroupSchema.partial()), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     const updates = [];
     const values = [];
@@ -132,7 +130,7 @@ router.put('/:groupId', requireAuth, validateBody(DeviceGroupSchema.partial()), 
     updates.push(`updated_at = NOW()`);
     values.push(req.params.groupId, req.accountId);
     
-    const result = await client.query(
+    const result = await query(
       `UPDATE device_groups
        SET ${updates.join(', ')}
        WHERE id = $${paramCount} AND account_id = $${paramCount + 1}
@@ -168,12 +166,12 @@ router.put('/:groupId', requireAuth, validateBody(DeviceGroupSchema.partial()), 
 
 // Delete device group
 router.delete('/:groupId', requireAuth, async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
 
   try {
     
     // First, get the default group to move devices to
-    const defaultGroupResult = await client.query(
+    const defaultGroupResult = await query(
       `SELECT id FROM device_groups WHERE account_id = $1 AND name = 'Default'`,
       [req.accountId]
     );
@@ -187,37 +185,37 @@ router.delete('/:groupId', requireAuth, async (req, res) => {
     
     const defaultGroupId = defaultGroupResult.rows[0].id;
     
-    await client.query('BEGIN');
+    await query('BEGIN');
     
     // Move devices to default group
-    await client.query(
+    await query(
       `UPDATE devices SET group_id = $1 WHERE group_id = $2 AND account_id = $3`,
       [defaultGroupId, req.params.groupId, req.accountId]
     );
     
     // Delete the group
-    const result = await client.query(
+    const result = await query(
       `DELETE FROM device_groups WHERE id = $1 AND account_id = $2 AND name != 'Default'
        RETURNING name`,
       [req.params.groupId, req.accountId]
     );
     
     if (result.rowCount === 0) {
-      await client.query('ROLLBACK');
+      await query('ROLLBACK');
       return res.status(404).json({
         success: false,
         error: 'Device group not found or cannot delete default group'
       });
     }
     
-    await client.query('COMMIT');
+    await query('COMMIT');
     
     res.json({
       success: true,
       message: `Device group '${result.rows[0].name}' deleted successfully`
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await query('ROLLBACK');
     console.error('Error deleting device group:', error);
     res.status(500).json({
       success: false,

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getDbClient } from '../db/client.js';
+import { query as dbQuery } from '@geofence/db';
 import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { generateApiKey, hashData } from '../utils/encryption.js';
@@ -22,10 +22,9 @@ const UpdateApiKeySchema = z.object({
 // List API keys for organization
 router.get('/', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
     const accountId = req.accountId!;
     
-    const query = `
+    const queryText = `
       SELECT 
         id,
         name,
@@ -40,7 +39,7 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
       ORDER BY created_at DESC
     `;
     
-    const result = await client.query(query, [accountId]);
+    const result = await dbQuery(queryText, [accountId]);
     
     res.json({
       success: true,
@@ -65,7 +64,7 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
 // Create new API key
 router.post('/', requireAuth, requireAccount, validateBody(CreateApiKeySchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const accountId = req.accountId!;
     const { name, scopes, expires_in_days } = req.body;
     
@@ -107,13 +106,13 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateApiKeySchema), 
       // For now, we'll allow it if they have access to the organization
     }
     
-    const query = `
+    const queryText = `
       INSERT INTO api_keys (name, account_id, key_hash, scopes, expires_at)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, name, scopes, expires_at, created_at
     `;
     
-    const result = await client.query(query, [
+    const result = await dbQuery(queryText, [
       name,
       accountId,
       hash,
@@ -146,7 +145,7 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateApiKeySchema), 
 // Update API key
 router.patch('/:keyId', requireAuth, requireAccount, validateBody(UpdateApiKeySchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const accountId = req.accountId!;
     const { keyId } = req.params;
     const updates = req.body;
@@ -194,14 +193,14 @@ router.patch('/:keyId', requireAuth, requireAccount, validateBody(UpdateApiKeySc
     updateFields.push('updated_at = NOW()');
     values.push(keyId, accountId);
     
-    const query = `
+    const queryText = `
       UPDATE api_keys 
       SET ${updateFields.join(', ')}
       WHERE id = $${paramCount++} AND account_id = $${paramCount}
       RETURNING id, name, scopes, is_active, updated_at
     `;
     
-    const result = await client.query(query, values);
+    const result = await dbQuery(queryText, values);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -229,17 +228,17 @@ router.patch('/:keyId', requireAuth, requireAccount, validateBody(UpdateApiKeySc
 // Delete API key
 router.delete('/:keyId', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const accountId = req.accountId!;
     const { keyId } = req.params;
     
-    const query = `
+    const queryText = `
       DELETE FROM api_keys 
       WHERE id = $1 AND account_id = $2
       RETURNING id, name
     `;
     
-    const result = await client.query(query, [keyId, accountId]);
+    const result = await dbQuery(queryText, [keyId, accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -265,11 +264,11 @@ router.delete('/:keyId', requireAuth, requireAccount, async (req, res) => {
 // Get API key usage statistics
 router.get('/:keyId/usage', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const accountId = req.accountId!;
     const { keyId } = req.params;
     
-    const query = `
+    const queryText = `
       SELECT 
         ak.id,
         ak.name,
@@ -283,7 +282,7 @@ router.get('/:keyId/usage', requireAuth, requireAccount, async (req, res) => {
       GROUP BY ak.id, ak.name, ak.last_used_at, ak.created_at
     `;
     
-    const result = await client.query(query, [keyId, accountId]);
+    const result = await dbQuery(queryText, [keyId, accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({

@@ -1,7 +1,7 @@
 import { INTEGRATION_TYPES } from '@geofence/shared';
 import { Router } from 'express';
 import { z } from 'zod';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -98,8 +98,8 @@ const TestIntegrationSchema = z.object({
 
 router.get('/', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
-    const query = `
+    // Using query() function for automatic connection management
+    const queryText = `
       SELECT 
         id,
         name,
@@ -117,7 +117,7 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
     let accountId = req.accountId;
     
     if (!accountId) {
-      const orgResult = await client.query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
+      const orgResult = await query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (orgResult.rows.length > 0) {
         accountId = orgResult.rows[0].id;
       } else {
@@ -128,7 +128,7 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
       }
     }
     
-    const result = await client.query(query, [accountId]);
+    const result = await query(queryText, [accountId]);
     
     // Don't return sensitive credentials in list view
     const integrations = result.rows.map(integration => ({
@@ -155,15 +155,15 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
 
 router.post('/', requireAuth, requireAccount, validateBody(CreateIntegrationSchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
-    const query = `
+    const queryText = `
       INSERT INTO integrations (name, type, account_id, config, credentials)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, name, type, config, is_active, created_at
     `;
     
-    const result = await client.query(query, [
+    const result = await query(queryText, [
       req.body.name,
       req.body.type,
       req.accountId,
@@ -194,8 +194,8 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateIntegrationSche
 
 router.get('/:integrationId', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
-    const query = `
+    // Using query() function for automatic connection management
+    const queryText = `
       SELECT 
         id,
         name,
@@ -208,7 +208,7 @@ router.get('/:integrationId', requireAuth, requireAccount, async (req, res) => {
       WHERE id = $1 AND account_id = $2
     `;
     
-    const result = await client.query(query, [req.params.integrationId, req.accountId]);
+    const result = await query(queryText, [req.params.integrationId, req.accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -240,7 +240,7 @@ router.get('/:integrationId', requireAuth, requireAccount, async (req, res) => {
 
 router.put('/:integrationId', requireAuth, requireAccount, validateBody(UpdateIntegrationSchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -275,14 +275,14 @@ router.put('/:integrationId', requireAuth, requireAccount, validateBody(UpdateIn
     updates.push(`updated_at = NOW()`);
     values.push(req.params.integrationId, req.accountId);
     
-    const query = `
+    const queryText = `
       UPDATE integrations 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount++} AND account_id = $${paramCount}
       RETURNING id, name, type, config, is_active, updated_at
     `;
     
-    const result = await client.query(query, values);
+    const result = await query(queryText, values);
     
     if (result.rowCount === 0) {
       return res.status(404).json({
@@ -314,7 +314,7 @@ router.put('/:integrationId', requireAuth, requireAccount, validateBody(UpdateIn
 // Delete integration
 router.delete('/:integrationId', requireAuth, requireAccount, async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     // Check if integration is used in any automation rules
     const usageQuery = `
@@ -322,7 +322,7 @@ router.delete('/:integrationId', requireAuth, requireAccount, async (req, res) =
       FROM automation_rules 
       WHERE integration_id = $1 AND account_id = $2
     `;
-    const usageResult = await client.query(usageQuery, [req.params.integrationId, req.accountId]);
+    const usageResult = await query(usageQuery, [req.params.integrationId, req.accountId]);
     const ruleCount = parseInt(usageResult.rows[0]?.rule_count || '0');
     
     if (ruleCount > 0) {
@@ -336,7 +336,7 @@ router.delete('/:integrationId', requireAuth, requireAccount, async (req, res) =
     }
     
     const query = 'DELETE FROM integrations WHERE id = $1 AND account_id = $2';
-    const result = await client.query(query, [req.params.integrationId, req.accountId]);
+    const result = await query(queryText, [req.params.integrationId, req.accountId]);
     
     if (result.rowCount === 0) {
       return res.status(404).json({
@@ -361,10 +361,10 @@ router.delete('/:integrationId', requireAuth, requireAccount, async (req, res) =
 // Test integration
 router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(TestIntegrationSchema), async (req, res) => {
   try {
-    const client = await getDbClient();
+    // Using query() function for automatic connection management
     
     // Get integration with credentials for testing
-    const query = `
+    const queryText = `
       SELECT 
         id,
         name,
@@ -376,7 +376,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
       WHERE id = $1 AND account_id = $2
     `;
     
-    const result = await client.query(query, [req.params.integrationId, req.accountId]);
+    const result = await query(queryText, [req.params.integrationId, req.accountId]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({

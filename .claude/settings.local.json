@@ -4,7 +4,8 @@
       "Bash(npm run migrate:*)",
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -46,9 +46,9 @@ const TestLocationSchema = z.object({
 
 // Get all geofences for organization
 router.get('/', requireAuth, requireAccount, async (req, res) => {
-  const client = await getDbClient();
+  // Using query() function for automatic connection management
   try {
-    const query = `
+    const queryText = `
       SELECT
         id,
         name,
@@ -67,7 +67,7 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
     let accountId = req.accountId;
 
     if (!accountId) {
-      const accountResult = await client.query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
+      const accountResult = await query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (accountResult.rows.length > 0) {
         accountId = accountResult.rows[0].id;
       } else {
@@ -78,7 +78,7 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
       }
     }
 
-    const result = await client.query(query, [accountId]);
+    const result = await query(queryText, [accountId]);
 
     const geofences = result.rows.map(row => ({
       id: row.id,
@@ -102,18 +102,12 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 
 // Create new geofence
 router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema), async (req, res) => {
-  let client;
   try {
-    client = await getDbClient();
     let geometryWKT: string;
 
     if (req.body.type === 'circle') {
@@ -124,13 +118,13 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema)
       geometryWKT = `ST_SetSRID(ST_MakePolygon(ST_MakeLine(ARRAY[${coordinatePoints}, ST_MakePoint(${req.body.coordinates[0].longitude}, ${req.body.coordinates[0].latitude})])), 4326)`;
     }
 
-    const query = `
+    const queryText = `
       INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata)
       VALUES ($1, $2, $3, ${geometryWKT}, $4, $5)
       RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at
     `;
 
-    const result = await client.query(query, [
+    const result = await query(queryText, [
       req.body.name,
       req.body.description || null,
       req.accountId,
@@ -154,19 +148,13 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema)
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 
 // Get specific geofence
 router.get('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
-  let client;
   try {
-    client = await getDbClient();
-    const query = `
+    const queryText = `
       SELECT 
         id,
         name,
@@ -181,7 +169,7 @@ router.get('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
       WHERE id = $1 AND account_id = $2
     `;
 
-    const result = await client.query(query, [req.params.geofenceId, req.accountId]);
+    const result = await query(queryText, [req.params.geofenceId, req.accountId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -206,18 +194,12 @@ router.get('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 
 // Update geofence
 router.put('/:geofenceId', requireAuth, requireAccount, validateBody(UpdateGeofenceSchema), async (req, res) => {
-  let client;
   try {
-    client = await getDbClient();
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -252,14 +234,14 @@ router.put('/:geofenceId', requireAuth, requireAccount, validateBody(UpdateGeofe
     updates.push(`updated_at = NOW()`);
     values.push(req.params.geofenceId, req.accountId);
 
-    const query = `
+    const queryText = `
       UPDATE geofences 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount++} AND account_id = $${paramCount}
       RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, updated_at
     `;
 
-    const result = await client.query(query, values);
+    const result = await query(queryText, values);
 
     if (result.rowCount === 0) {
       return res.status(404).json({
@@ -284,20 +266,14 @@ router.put('/:geofenceId', requireAuth, requireAccount, validateBody(UpdateGeofe
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 
 // Delete geofence
 router.delete('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
-  let client;
   try {
-    client = await getDbClient();
     const query = 'DELETE FROM geofences WHERE id = $1 AND account_id = $2';
-    const result = await client.query(query, [req.params.geofenceId, req.accountId]);
+    const result = await query(queryText, [req.params.geofenceId, req.accountId]);
 
     if (result.rowCount === 0) {
       return res.status(404).json({
@@ -316,19 +292,13 @@ router.delete('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 
 // Test if a location is inside the geofence
 router.post('/:geofenceId/test', requireAuth, requireAccount, validateBody(TestLocationSchema), async (req, res) => {
-  let client;
   try {
-    client = await getDbClient();
-    const query = `
+    const queryText = `
       SELECT 
         ST_Contains(geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326)) as is_inside,
         ST_Distance(geometry::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance_meters
@@ -336,7 +306,7 @@ router.post('/:geofenceId/test', requireAuth, requireAccount, validateBody(TestL
       WHERE id = $3 AND account_id = $4
     `;
 
-    const result = await client.query(query, [
+    const result = await query(queryText, [
       req.body.longitude,
       req.body.latitude,
       req.params.geofenceId,
@@ -369,10 +339,6 @@ router.post('/:geofenceId/test', requireAuth, requireAccount, validateBody(TestL
       success: false,
       error: 'Internal server error'
     });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 
 interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
@@ -148,20 +148,19 @@ export const databaseRateLimit = (config: DatabaseRateLimitConfig) => {
 
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const client = await getDbClient();
       const key = keyGenerator(req);
       const now = new Date();
       const windowStart = new Date(now.getTime() - windowMs);
 
       // Clean up old entries (optional optimization)
       if (Math.random() < 0.01) {
-        await client.query(
+        await query(
           `DELETE FROM ${tableName} WHERE created_at < NOW() - INTERVAL '1 hour'`
         );
       }
 
       // Count recent requests
-      const countResult = await client.query(
+      const countResult = await query(
         `SELECT COUNT(*) as count FROM ${tableName} 
          WHERE key = $1 AND created_at > $2`,
         [key, windowStart.toISOString()]
@@ -178,7 +177,7 @@ export const databaseRateLimit = (config: DatabaseRateLimitConfig) => {
       }
 
       // Log this request
-      await client.query(
+      await query(
         `INSERT INTO ${tableName} (key, created_at) VALUES ($1, NOW())`,
         [key]
       );

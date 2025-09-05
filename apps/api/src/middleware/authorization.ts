@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 
 export enum Permission {
   // User management
@@ -108,8 +108,6 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
  * Get user's role and permissions for an organization
  */
 async function getUserPermissions(userId: string, accountId: string): Promise<{ role: Role; permissions: Permission[] }> {
-  const client = await getDbClient();
-
   // Check if user is the organization owner
   const ownerQuery = `
     SELECT 'owner' as role
@@ -117,7 +115,7 @@ async function getUserPermissions(userId: string, accountId: string): Promise<{ 
     WHERE id = $1 AND owner_id = $2
   `;
 
-  const ownerResult = await client.query(ownerQuery, [accountId, userId]);
+  const ownerResult = await query(ownerQuery, [accountId, userId]);
 
   if (ownerResult.rows.length > 0) {
     return {
@@ -202,7 +200,6 @@ export function requireResourceOwnership(resourceType: 'device' | 'geofence' | '
         });
       }
 
-      const client = await getDbClient();
       let tableName: string;
 
       switch (resourceType) {
@@ -222,8 +219,8 @@ export function requireResourceOwnership(resourceType: 'device' | 'geofence' | '
           throw new Error('Invalid resource type');
       }
 
-      const query = `SELECT id FROM ${tableName} WHERE id = $1 AND account_id = $2`;
-      const result = await client.query(query, [resourceId, req.accountId]);
+      const queryText = `SELECT id FROM ${tableName} WHERE id = $1 AND account_id = $2`;
+      const result = await query(queryText, [resourceId, req.accountId]);
 
       if (result.rows.length === 0) {
         return res.status(404).json({

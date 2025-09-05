@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { z } from 'zod';
-import { getDbClient } from '../db/client.js';
+import { query } from '@geofence/db';
 import { auth } from '../config/index.js';
 import { encryptData, decryptData, hashData } from './encryption.js';
 
@@ -55,7 +55,6 @@ export async function generateDeviceTokens(
   expiresIn: number;
   refreshExpiresIn: number;
 }> {
-  const client = await getDbClient();
   const sessionId = crypto.randomUUID();
 
   try {
@@ -81,7 +80,7 @@ export async function generateDeviceTokens(
     const refreshTokenHash = hashData(refreshToken);
 
     // Store session in database
-    await client.query(
+    await query(
       `INSERT INTO device_sessions (
         device_id, access_token_hash, refresh_token_hash,
         expires_at, refresh_expires_at, created_at
@@ -115,11 +114,9 @@ export async function completeDevicePairing(
   pairingCode: string,
   deviceInfo: z.infer<typeof DeviceRegistrationSchema>
 ): Promise<z.infer<typeof DeviceTokenResponseSchema> | null> {
-  const client = await getDbClient();
-
   try {
     // Find pairing request
-    const pairingRequestResult = await client.query(
+    const pairingRequestResult = await query(
       `SELECT dpr.*, d.id as device_id, d.account_id, d.account_id
        FROM device_pairing_requests dpr
        JOIN devices d ON dpr.pairing_code = d.pairing_code
@@ -135,16 +132,16 @@ export async function completeDevicePairing(
     const deviceId = pairingRequest.device_id;
     const accountId = pairingRequest.account_id;
 
-    await client.query('BEGIN');
+    await query('BEGIN');
 
     // Mark pairing request as used
-    await client.query(
+    await query(
       'UPDATE device_pairing_requests SET used_at = NOW() WHERE id = $1',
       [pairingRequest.id]
     );
 
     // Update device as paired and set ownership
-    await client.query(
+    await query(
       `UPDATE devices SET
          is_paired = true,
          pairing_code = NULL,
@@ -157,7 +154,7 @@ export async function completeDevicePairing(
     );
 
     // Create device-user association (owner permission)
-    await client.query(
+    await query(
       `INSERT INTO device_users (device_id, user_id, account_id, permissions, granted_by)
        VALUES ($1, $2, $3, 'owner', $2)
        ON CONFLICT (device_id, user_id) DO NOTHING`,
@@ -167,7 +164,7 @@ export async function completeDevicePairing(
     // Generate tokens
     const tokens = await generateDeviceTokens(deviceId, accountId, accountId);
 
-    await client.query('COMMIT');
+    await query('COMMIT');
 
     return {
       accessToken: tokens.accessToken,
@@ -182,7 +179,7 @@ export async function completeDevicePairing(
       }
     };
   } catch (error) {
-    await client.query('ROLLBACK');
+    await query('ROLLBACK');
     console.error('Error completing device pairing:', error);
     throw new Error('Failed to complete device pairing');
   }
@@ -193,13 +190,12 @@ export async function completeDevicePairing(
  */
 export async function cleanupExpiredPairingRequests(): Promise<number> {
   try {
-    const client = await getDbClient();
-    const result = await client.query(
+    const result = await query(
       'DELETE FROM device_pairing_requests WHERE expires_at < NOW() AND used_at IS NULL'
     );
 
     // Also clean up expired device pairings
-    await client.query(
+    await query(
       `UPDATE devices SET
          pairing_code = NULL,
          pairing_expires_at = NULL

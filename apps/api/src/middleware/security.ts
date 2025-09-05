@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
-import { getDbClient, query } from '../db/client.js';
+import { query } from '@geofence/db';
 import { hashData } from '../utils/encryption.js';
 import { urls } from '../config/index.js';
 
@@ -92,8 +92,6 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
         retryAfter: Math.ceil((keyUsage.resetTime - now) / 1000)
       });
     }
-
-    const client = await getDbClient();
 
     // Find API key in database
     const queryText = `

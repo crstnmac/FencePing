@@ -20,7 +20,7 @@ import { automationRoutes } from './routes/automations.js';
 import { settingsRoutes } from './routes/settings.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { initializeKafka, shutdownKafka } from './kafka/producer.js';
-import { connectDb, disconnectDb } from './db/client.js';
+import { connectDb, disconnectDb } from '@geofence/db';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
