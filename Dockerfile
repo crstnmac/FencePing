@@ -37,12 +37,7 @@ COPY --from=pruner /app/out/full/ ./
 RUN npm install --omit=dev
 
 # Build all workspaces
-RUN npx turbo build \
-  --filter=@geofence/api \
-  --filter=@geofence/dashboard \
-  --filter=@geofence/mqtt-ingestion \
-  --filter=@geofence/geofence-engine \
-  --filter=@geofence/automation-workers
+RUN npx turbo build 
 # ----------------------------
 # 4. Runtime: API service
 # ----------------------------
