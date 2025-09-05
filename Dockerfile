@@ -29,20 +29,25 @@ RUN npx turbo prune \
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Disable Turbo daemon + telemetry inside Docker
+ENV TURBO_TELEMETRY_DISABLED=1
+ENV TURBO_DISABLE_DAEMON=1
+
 # Copy pruned output
 COPY --from=pruner /app/out/json/ ./
 COPY --from=pruner /app/out/full/ ./
 
 # Install only needed deps
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
-# Build all workspaces
+# Build all workspaces WITHOUT daemon
 RUN npx turbo build \
   --filter=@geofence/api \
   --filter=@geofence/dashboard \
   --filter=@geofence/mqtt-ingestion \
   --filter=@geofence/geofence-engine \
-  --filter=@geofence/automation-workers 
+  --filter=@geofence/automation-workers \
+  --no-daemon 
 
 # ----------------------------
 # 4. Runtime: API service
