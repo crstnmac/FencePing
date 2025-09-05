@@ -1,5 +1,5 @@
 # Multi-stage build for geofence engine
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -8,11 +8,13 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+COPY turbo.json ./
 COPY packages/shared/package*.json ./packages/shared/
+COPY packages/db/package*.json ./packages/db/
 COPY apps/geofence-engine/package*.json ./apps/geofence-engine/
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install dependencies including optional packages
+RUN npm ci --include=optional && npm cache clean --force
 
 # Build the source code
 FROM base AS builder
@@ -20,11 +22,15 @@ WORKDIR /app
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 
+# Set turbo environment for Docker builds
+ENV TURBO_DAEMON=false
+ENV CI=1
+
 # Build shared packages first
-RUN npm run build --workspace=@geofence/shared
+RUN npm run build:packages
 
 # Build geofence engine
-RUN npm run build --workspace=@geofence/geofence-engine
+RUN npm run build:geofence-engine
 
 # Production image
 FROM base AS runner
@@ -49,4 +55,4 @@ USER geofence-engine
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD pgrep node || exit 1
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "apps/geofence-engine/dist/index.js"]

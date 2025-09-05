@@ -1,5 +1,5 @@
 # Multi-stage build for Next.js production
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -8,11 +8,12 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+COPY turbo.json ./
 COPY packages/shared/package*.json ./packages/shared/
 COPY apps/dashboard/package*.json ./apps/dashboard/
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install dependencies including optional packages
+RUN npm ci --include=optional && npm cache clean --force
 
 # Build the source code
 FROM base AS builder
@@ -20,12 +21,15 @@ WORKDIR /app
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 
+# Set turbo environment for Docker builds
+ENV TURBO_DAEMON=false
+ENV CI=1
+
 # Build shared packages first
-RUN npm run build --workspace=@geofence/shared
+RUN npm run build:packages
 
 # Build dashboard
-WORKDIR /app/apps/dashboard
-RUN npm run build
+RUN npm run build:dashboard
 
 # Production image
 FROM base AS runner
@@ -50,6 +54,6 @@ ENV HOSTNAME="0.0.0.0"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000 || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
 
 CMD ["node", "server.js"]

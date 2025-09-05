@@ -25,6 +25,9 @@ const nextConfig = {
   // Turbo monorepo configuration
   transpilePackages: ['@geofence/shared'],
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  
+  // Production build configuration
+  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
 
   // Environment variables
   env: {
