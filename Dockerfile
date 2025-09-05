@@ -21,7 +21,7 @@ RUN npx turbo prune \
   --scope=@geofence/mqtt-ingestion \
   --scope=@geofence/geofence-engine \
   --scope=@geofence/automation-workers \
-  --docker --out-dir=out --no-deamon
+  --docker --out-dir=out 
 
 # ----------------------------
 # 3. Build all apps
@@ -42,7 +42,8 @@ RUN npx turbo build \
   --filter=@geofence/dashboard \
   --filter=@geofence/mqtt-ingestion \
   --filter=@geofence/geofence-engine \
-  --filter=@geofence/automation-workers
+  --filter=@geofence/automation-workers \
+  --no-deamon
 # ----------------------------
 # 4. Runtime: API service
 # ----------------------------
