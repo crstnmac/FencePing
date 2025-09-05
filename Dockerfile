@@ -22,7 +22,7 @@ RUN npx turbo prune \
   --scope=@geofence/mqtt-ingestion \
   --scope=@geofence/geofence-engine \
   --scope=@geofence/automation-workers \
-  --docker --no-daemon --out-dir=out
+  --docker --out-dir=out
 
 # ----------------------------
 # 3. Build all apps
