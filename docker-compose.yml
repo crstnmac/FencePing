@@ -140,7 +140,6 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: npm run dev:api
 
   mqtt-ingestion:
     build:
@@ -231,7 +230,6 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: npm run dev:dashboard
 
   # Optional: pgAdmin for database management
   pgadmin:

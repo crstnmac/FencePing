@@ -37,7 +37,7 @@ COPY --from=pruner /app/out/full/ ./
 RUN npm install --omit=dev
 
 # Build all workspaces
-RUN npx turbo build 
+RUN npx turbo build --no-daemon
 # ----------------------------
 # 4. Runtime: API service
 # ----------------------------
