@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Header } from '../../components/Header';
 import { Map } from '../../components/Map';
 import { AutomationRuleModal } from '../../components/AutomationRuleModal';
-import { useGeofences, useDeleteGeofence, useAutomationRulesForGeofence, useDeleteAutomationRule, useToggleAutomationRule, useDevices } from '../../hooks/useApi';
+import { useGeofences, useDeleteGeofence, useCreateGeofence, useUpdateGeofence, useAutomationRulesForGeofence, useDeleteAutomationRule, useToggleAutomationRule, useDevices } from '../../hooks/useApi';
 import {
   Plus,
   Search,
@@ -24,9 +24,12 @@ import {
 } from 'lucide-react';
 
 export default function GeofencesPage() {
+  console.log('🎯 GeofencesPage component is rendering!');
   const { data: geofences = [], isLoading, error } = useGeofences();
   const { data: devices = [] } = useDevices();
   const deleteGeofenceMutation = useDeleteGeofence();
+  const createGeofenceMutation = useCreateGeofence();
+  const updateGeofenceMutation = useUpdateGeofence();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'polygon' | 'circle'>('all');
@@ -37,6 +40,8 @@ export default function GeofencesPage() {
   const [selectedGeofenceForRule, setSelectedGeofenceForRule] = useState<string | null>(null);
   const [expandedGeofence, setExpandedGeofence] = useState<string | null>(null);
   const [showDevices, setShowDevices] = useState(true);
+  const [pendingGeofence, setPendingGeofence] = useState<any>(null);
+  const [formData, setFormData] = useState({ name: '', description: '' });
   
   // Get automation rules for expanded geofence
   const { data: automationRules = [] } = useAutomationRulesForGeofence(
@@ -56,14 +61,73 @@ export default function GeofencesPage() {
 
   const handleGeofenceCreate = (geofence: { type: "polygon" | "circle" | "point"; coordinates: number[][]; center?: [number, number] | undefined; radius?: number | undefined; }) => {
     console.log('Creating geofence:', geofence);
+    setPendingGeofence(geofence);
+    setFormData({ name: '', description: '' });
     setShowCreateModal(true);
+  };
+
+  const handleSaveGeofence = async () => {
+    if (!formData.name.trim()) return;
+
+    try {
+      if (selectedGeofence) {
+        // Update existing geofence
+        await updateGeofenceMutation.mutateAsync({
+          geofenceId: selectedGeofence.id,
+          updates: {
+            name: formData.name,
+            description: formData.description || undefined
+          }
+        });
+      } else if (pendingGeofence) {
+        // Create new geofence
+        const geofenceData: any = {
+          name: formData.name,
+          description: formData.description || undefined,
+          type: pendingGeofence.type,
+          metadata: {}
+        };
+
+        if (pendingGeofence.type === 'circle') {
+          geofenceData.center = {
+            longitude: pendingGeofence.center![0],
+            latitude: pendingGeofence.center![1]
+          };
+          geofenceData.radius = pendingGeofence.radius || 100;
+        } else {
+          // Convert coordinates to the expected format for polygon/point
+          geofenceData.coordinates = pendingGeofence.coordinates.map((coord: number[]) => ({
+            longitude: coord[0],
+            latitude: coord[1]
+          }));
+        }
+
+        await createGeofenceMutation.mutateAsync(geofenceData);
+      }
+
+      // Close modal and reset state
+      setShowCreateModal(false);
+      setSelectedGeofence(null);
+      setPendingGeofence(null);
+      setFormData({ name: '', description: '' });
+    } catch (err) {
+      console.error('Failed to save geofence:', err);
+      alert('Failed to save geofence. Please try again.');
+    }
   };
 
   const handleGeofenceUpdate = (id: string, geofence: any) => {
     console.log('Updating geofence:', id, geofence);
   };
 
-  const handleGeofenceDelete = async (geofenceId: string) => {
+  // Simple test function with useCallback
+  const handleGeofenceDelete = useCallback((geofenceId: string) => {
+    // Call the actual delete mutation
+    deleteGeofenceMutation.mutate(geofenceId);
+  }, [deleteGeofenceMutation]);
+  
+
+  const handleGeofenceDeleteFromList = async (geofenceId: string) => {
     if (window.confirm('Are you sure you want to delete this geofence?')) {
       try {
         await deleteGeofenceMutation.mutateAsync(geofenceId);
@@ -280,6 +344,11 @@ export default function GeofencesPage() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedGeofence(geofence);
+                              setFormData({
+                                name: geofence.name,
+                                description: geofence.description || ''
+                              });
+                              setPendingGeofence(null);
                               setShowCreateModal(true);
                             }}
                             className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
@@ -289,7 +358,7 @@ export default function GeofencesPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleGeofenceDelete(geofence.id);
+                              handleGeofenceDeleteFromList(geofence.id);
                             }}
                             disabled={deleteGeofenceMutation.isPending}
                             className="p-1.5 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
@@ -388,6 +457,7 @@ export default function GeofencesPage() {
               }
               onGeofenceCreate={handleGeofenceCreate}
               onGeofenceUpdate={handleGeofenceUpdate}
+              onGeofenceDelete={handleGeofenceDelete}
             />
           </div>
         )}
@@ -408,6 +478,8 @@ export default function GeofencesPage() {
                 </label>
                 <input
                   type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Enter geofence name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -419,6 +491,8 @@ export default function GeofencesPage() {
                 </label>
                 <textarea
                   rows={3}
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Enter description"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -434,15 +508,19 @@ export default function GeofencesPage() {
                 onClick={() => {
                   setShowCreateModal(false);
                   setSelectedGeofence(null);
+                  setPendingGeofence(null);
+                  setFormData({ name: '', description: '' });
                 }}
                 className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={handleSaveGeofence}
+                disabled={createGeofenceMutation.isPending || updateGeofenceMutation.isPending || !formData.name.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {selectedGeofence ? 'Update' : 'Create'} Geofence
+                {createGeofenceMutation.isPending || updateGeofenceMutation.isPending ? 'Saving...' : (selectedGeofence ? 'Update' : 'Create')} Geofence
               </button>
             </div>
           </div>

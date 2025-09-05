@@ -52,11 +52,13 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
       SELECT
         id,
         name,
-        ST_AsGeoJSON(geom) as geometry_geojson,
-        properties,
-        active,
+        description,
+        ST_AsGeoJSON(geometry) as geometry_geojson,
+        metadata,
+        is_active,
         created_at,
-        type,
+        updated_at,
+        geofence_type,
         radius_m
       FROM geofences
       WHERE account_id = $1
@@ -80,14 +82,16 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
 
     const result = await query(queryText, [accountId]);
 
-    const geofences = result.rows.map(row => ({
+    const geofences = result.rows.map((row: any) => ({
       id: row.id,
       name: row.name,
+      description: row.description,
       geometry: JSON.parse(row.geometry_geojson),
-      properties: row.properties,
-      active: row.active,
+      metadata: row.metadata,
+      is_active: row.is_active,
       created_at: row.created_at,
-      type: row.type,
+      updated_at: row.updated_at,
+      geofence_type: row.geofence_type,
       radius_m: row.radius_m
     }));
 
@@ -272,7 +276,7 @@ router.put('/:geofenceId', requireAuth, requireAccount, validateBody(UpdateGeofe
 // Delete geofence
 router.delete('/:geofenceId', requireAuth, requireAccount, async (req, res) => {
   try {
-    const query = 'DELETE FROM geofences WHERE id = $1 AND account_id = $2';
+    const queryText = 'DELETE FROM geofences WHERE id = $1 AND account_id = $2';
     const result = await query(queryText, [req.params.geofenceId, req.accountId]);
 
     if (result.rowCount === 0) {

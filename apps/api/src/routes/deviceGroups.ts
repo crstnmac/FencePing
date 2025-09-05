@@ -29,7 +29,7 @@ router.get('/', requireAuth, async (req, res) => {
     
     res.json({
       success: true,
-      data: result.rows.map(group => ({
+      data: result.rows.map((group:any) => ({
         id: group.id,
         name: group.name,
         description: group.description,

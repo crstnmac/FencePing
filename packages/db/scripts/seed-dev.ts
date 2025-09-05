@@ -66,11 +66,46 @@ async function seedDevelopmentData() {
     const accounts = orgResult.rows;
     console.log(`🏢 Created ${accounts.length} accounts`);
 
+    // Create test geofences
+    console.log('🗺️  Creating test geofences...');
+    const geofenceResult = await client.query(`
+      INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata, radius_m) VALUES 
+      ('Office Building', 'Main office building in San Francisco', $1, 
+       ST_GeomFromGeoJSON('{"type":"Polygon","coordinates":[[[-122.4194,37.7749],[-122.4184,37.7749],[-122.4184,37.7759],[-122.4194,37.7759],[-122.4194,37.7749]]]}'), 
+       'polygon', '{}', NULL),
+      ('Parking Lot', 'Employee parking area', $1,
+       ST_Buffer(ST_SetSRID(ST_MakePoint(-122.4174, 37.7739), 4326)::geography, 50)::geometry,
+       'circle', '{}', 50),
+      ('Conference Center', 'Downtown conference facility', $2,
+       ST_GeomFromGeoJSON('{"type":"Polygon","coordinates":[[[-122.4094,37.7849],[-122.4074,37.7849],[-122.4074,37.7869],[-122.4094,37.7869],[-122.4094,37.7849]]]}'),
+       'polygon', '{}', NULL)
+      RETURNING id, name, geofence_type
+    `, [accounts[0].id, accounts[1].id]);
+    const geofences = geofenceResult.rows;
+    console.log(`🗺️  Created ${geofences.length} geofences`);
+
+    // Create test devices
+    console.log('📱 Creating test devices...');
+    const deviceResult = await client.query(`
+      INSERT INTO devices (name, account_id, device_key, device_type, status, last_heartbeat, meta) VALUES 
+      ('iPhone 15 Pro', $1, 'device_key_1', 'mobile', 'online', NOW(), 
+       '{"longitude": -122.4194, "latitude": 37.7749, "accuracy": 5}'),
+      ('Samsung Galaxy S24', $1, 'device_key_2', 'mobile', 'offline', NOW() - INTERVAL '1 hour',
+       '{"longitude": -122.4174, "latitude": 37.7739, "accuracy": 8}'),
+      ('GPS Tracker', $2, 'device_key_3', 'tracker', 'online', NOW(),
+       '{"longitude": -122.4094, "latitude": 37.7849, "accuracy": 3}')
+      RETURNING id, name, device_type, status
+    `, [accounts[0].id, accounts[1].id]);
+    const devices = deviceResult.rows;
+    console.log(`📱 Created ${devices.length} devices`);
+
     // Summary
     console.log('\n🎉 Development seeding completed successfully!');
     console.log('📊 Summary:');
     console.log(`   👥 Users: ${users.length}`);
     console.log(`   🏢 Accounts: ${accounts.length}`);
+    console.log(`   🗺️  Geofences: ${geofences.length}`);
+    console.log(`   📱 Devices: ${devices.length}`);
 
     console.log('\n🧪 Accounts data available:');
     console.log('   • Test accounts with associated owners');

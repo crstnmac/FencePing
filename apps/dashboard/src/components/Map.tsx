@@ -14,21 +14,21 @@ import { Search, MapPin, X } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 interface MapProps {
-  onGeofenceCreate?: (geofence: {
+  onGeofenceCreate: (geofence: {
     type: 'polygon' | 'circle' | 'point';
     coordinates: number[][];
     center?: [number, number];
     radius?: number;
   }) => void;
-  onGeofenceUpdate?: (id: string, geofence: any) => void;
-  onGeofenceDelete?: (id: string) => void;
-  geofences?: Array<{
+  onGeofenceUpdate: (id: string, geofence: any) => void;
+  onGeofenceDelete: (id: string) => void;
+  geofences: Array<{
     id: string;
     name: string;
     geometry: any;
     type: 'polygon' | 'circle';
   }>;
-  devices?: Array<{
+  devices: Array<{
     id: string;
     name: string;
     location: [number, number];
@@ -50,6 +50,8 @@ export function Map({
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentMode, setCurrentMode] = useState<'select' | 'polygon' | 'circle' | 'point'>('select');
   const [terraDrawStatus, setTerraDrawStatus] = useState<'initializing' | 'ready' | 'error'>('initializing');
+  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState<{ id: string; name: string } | null>(null);
   
   // Search functionality
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,14 +72,6 @@ export function Map({
     onGeofenceDelete
   });
 
-  // Update callback refs when props change
-  useEffect(() => {
-    callbacksRef.current = {
-      onGeofenceCreate,
-      onGeofenceUpdate,
-      onGeofenceDelete
-    };
-  }, [onGeofenceCreate, onGeofenceUpdate, onGeofenceDelete]);
 
   // Search functionality
   const searchPlaces = useCallback(async (query: string) => {
@@ -147,24 +141,166 @@ export function Map({
   }, []);
 
   const loadGeofences = useCallback(() => {
-    if (!draw.current) return;
+    if (!map.current) return;
 
-    // Clear existing features
-    draw.current.clear();
+    // Reset selection state when reloading geofences
+    setSelectedGeofenceId(null);
 
-    // Add geofences as GeoJSON features
-    geofences.forEach(geofence => {
-      if (geofence.geometry) {
-        draw.current?.addFeatures([{
-          type: 'Feature',
-          id: geofence.id,
-          properties: {
-            name: geofence.name
-          },
-          geometry: geofence.geometry
-        }]);
+    // Remove existing geofence layers
+    const existingLayers = [
+      'geofences-highlight', 
+      'geofences-line', 
+      'geofences-fill', 
+      'geofences-shadow', 
+      'geofences-selected', 
+      'geofences-selected-fill'
+    ];
+    existingLayers.forEach(layerId => {
+      if (map.current!.getLayer(layerId)) {
+        map.current!.removeLayer(layerId);
       }
     });
+    
+    if (map.current!.getSource('geofences')) {
+      map.current!.removeSource('geofences');
+    }
+
+    // Create GeoJSON features from geofences
+    console.log('Raw geofences data:', geofences);
+    const features = geofences
+      .filter(g => g.geometry && g.id !== undefined && g.id !== null && g.id !== '') // Ensure valid geometry and ID
+      .map(geofence => {
+        // Ensure ID is always a string
+        const featureId = String(geofence.id);
+        console.log('Processing geofence:', { 
+          id: geofence.id, 
+          featureId,
+          name: geofence.name, 
+          hasGeometry: !!geofence.geometry 
+        });
+        return {
+          type: 'Feature' as const,
+          id: featureId, // Always use string ID
+          properties: {
+            name: geofence.name,
+            type: geofence.type || geofence.geofence_type,
+            id: featureId // Store string ID in properties too
+          },
+          geometry: geofence.geometry
+        };
+      });
+    
+    console.log('Created features:', features);
+
+    if (features.length === 0) {
+      return;
+    }
+
+    // Add geofences as a MapLibre source
+    map.current!.addSource('geofences', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: features
+      }
+    });
+
+    // Add shadow layer for geofences (depth effect)
+    map.current!.addLayer({
+      id: 'geofences-shadow',
+      type: 'fill',
+      source: 'geofences',
+      paint: {
+        'fill-color': '#000000',
+        'fill-opacity': 0.1,
+        'fill-translate': [2, 2]
+      }
+    });
+
+    // Add animated fill layer for geofences
+    map.current!.addLayer({
+      id: 'geofences-fill',
+      type: 'fill',
+      source: 'geofences',
+      paint: {
+        'fill-color': [
+          'case',
+          ['==', ['get', 'type'], 'circle'], '#10b981',
+          '#3b82f6'
+        ],
+        'fill-opacity': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          10, 0.1,
+          15, 0.25,
+          18, 0.35
+        ]
+      }
+    });
+
+    // Add animated outline layer for geofences  
+    map.current!.addLayer({
+      id: 'geofences-line',
+      type: 'line',
+      source: 'geofences',
+      paint: {
+        'line-color': [
+          'case',
+          ['==', ['get', 'type'], 'circle'], '#10b981', 
+          '#3b82f6'
+        ],
+        'line-width': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          10, 1.5,
+          15, 2.5,
+          18, 3.5
+        ],
+        'line-opacity': 0.8
+      }
+    });
+
+    // Add hover highlight layer
+    map.current!.addLayer({
+      id: 'geofences-highlight',
+      type: 'line',
+      source: 'geofences',
+      paint: {
+        'line-color': '#ffffff',
+        'line-width': 4,
+        'line-opacity': 0
+      },
+      filter: ['==', 'id', '']
+    });
+
+    // Add selected geofence layer
+    map.current!.addLayer({
+      id: 'geofences-selected',
+      type: 'line',
+      source: 'geofences',
+      paint: {
+        'line-color': '#ef4444',
+        'line-width': 6,
+        'line-opacity': 0.9,
+        'line-dasharray': [2, 2]
+      },
+      filter: ['==', 'id', '']
+    });
+
+    // Add selected geofence fill overlay
+    map.current!.addLayer({
+      id: 'geofences-selected-fill',
+      type: 'fill',
+      source: 'geofences',
+      paint: {
+        'fill-color': '#ef4444',
+        'fill-opacity': 0.1
+      },
+      filter: ['==', 'id', '']
+    });
+
   }, [geofences]);
 
   const loadDevices = useCallback(() => {
@@ -174,37 +310,105 @@ export function Map({
     const existingMarkers = document.querySelectorAll('.device-marker');
     existingMarkers.forEach(marker => marker.remove());
 
-    // Add device markers
-    devices.forEach(device => {
+    // Add enhanced device markers with animations
+    devices.forEach((device, index) => {
+      // Create device marker container
       const el = document.createElement('div');
-      el.className = `device-marker w-4 h-4 rounded-full border-2 border-white shadow-lg ${
-        device.isActive ? 'bg-green-500' : 'bg-gray-400'
+      el.className = 'device-marker relative cursor-pointer transform hover:scale-110 transition-all duration-300';
+      
+      // Add pulsing animation for active devices
+      const pulseRing = document.createElement('div');
+      pulseRing.className = `absolute inset-0 rounded-full border-2 ${
+        device.isActive ? 'border-green-400 animate-ping' : 'border-transparent'
       }`;
-      el.title = `${device.name} - Last seen: ${new Date(device.lastSeen).toLocaleString()}`;
+      
+      // Main device icon
+      const deviceIcon = document.createElement('div');
+      deviceIcon.className = `relative w-8 h-8 rounded-full border-3 border-white shadow-xl z-10 flex items-center justify-center text-white font-bold text-xs transition-all duration-300 ${
+        device.isActive 
+          ? 'bg-gradient-to-br from-green-400 to-green-600 shadow-green-400/50' 
+          : 'bg-gradient-to-br from-gray-400 to-gray-600 shadow-gray-400/50'
+      }`;
+      deviceIcon.textContent = device.name.charAt(0).toUpperCase();
+      
+      // Status indicator dot
+      const statusDot = document.createElement('div');
+      statusDot.className = `absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white z-20 ${
+        device.isActive ? 'bg-green-500' : 'bg-red-500'
+      }`;
+      
+      // Assemble marker
+      el.appendChild(pulseRing);
+      el.appendChild(deviceIcon);
+      el.appendChild(statusDot);
+      
+      el.title = `${device.name} - ${device.isActive ? 'Online' : 'Offline'}`;
 
-      // Create popup
-      const popup = new maplibregl.Popup({ offset: 25 })
+      // Enhanced popup with better styling
+      const popup = new maplibregl.Popup({ 
+        offset: 35,
+        className: 'device-popup',
+        maxWidth: '300px'
+      })
         .setHTML(`
-          <div class="p-2">
-            <h3 class="font-semibold">${device.name}</h3>
-            <p class="text-sm text-gray-600">Status: ${device.isActive ? 'Active' : 'Inactive'}</p>
-            <p class="text-sm text-gray-600">Last seen: ${new Date(device.lastSeen).toLocaleString()}</p>
-            <p class="text-sm text-gray-600">Location: ${device.location[1].toFixed(4)}, ${device.location[0].toFixed(4)}</p>
+          <div class="p-4 bg-white rounded-lg shadow-xl border border-gray-200">
+            <div class="flex items-center space-x-3 mb-3">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
+                device.isActive ? 'bg-green-500' : 'bg-gray-500'
+              }">
+                ${device.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-900">${device.name}</h3>
+                <div class="flex items-center space-x-1">
+                  <div class="w-2 h-2 rounded-full ${device.isActive ? 'bg-green-500' : 'bg-red-500'}"></div>
+                  <span class="text-sm ${device.isActive ? 'text-green-600' : 'text-red-600'}">
+                    ${device.isActive ? 'Online' : 'Offline'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-2 text-sm text-gray-600">
+              <div class="flex justify-between">
+                <span>Last seen:</span>
+                <span class="font-medium">${new Date(device.lastSeen).toLocaleString()}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Location:</span>
+                <span class="font-medium font-mono">${device.location[1].toFixed(4)}, ${device.location[0].toFixed(4)}</span>
+              </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-gray-200">
+              <button class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                View Details
+              </button>
+            </div>
           </div>
         `);
 
-      // Add marker to map
-      new maplibregl.Marker(el)
+      // Add marker to map with staggered animation
+      const marker = new maplibregl.Marker(el)
         .setLngLat(device.location)
         .setPopup(popup)
         .addTo(map.current!);
+        
+      // Staggered entrance animation
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0) translateY(-20px)';
+        el.style.transition = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        
+        requestAnimationFrame(() => {
+          el.style.opacity = '1';
+          el.style.transform = 'scale(1) translateY(0)';
+        });
+      }, index * 100);
     });
   }, [devices]);
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    console.log('Initializing Map and Terra Draw...');
 
     // Initialize MapLibre GL map with configurable tiles
     const tileUrl = process.env.TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -235,13 +439,24 @@ export function Map({
             type: 'raster',
             source: 'tiles',
             minzoom: 0,
-            maxzoom: 18
+            maxzoom: 19,
+            paint: {
+              'raster-brightness-min': 0,
+              'raster-brightness-max': 1,
+              'raster-contrast': 0.3,
+              'raster-saturation': -0.2
+            }
           }
         ]
       },
       center: [-122.4194, 37.7749], // San Francisco
-      zoom: 12,
-      attributionControl: false
+      zoom: 13,
+      pitch: 0,
+      bearing: 0,
+      attributionControl: false,
+      logoPosition: 'bottom-left',
+      maxZoom: 20,
+      minZoom: 8
     });
 
     // Initialize Terra Draw with MapLibre adapter
@@ -342,16 +557,36 @@ export function Map({
       }
     });
 
-    // Add navigation control
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+    // Add enhanced navigation controls
+    map.current.addControl(new maplibregl.NavigationControl({
+      showCompass: true,
+      showZoom: true,
+      visualizePitch: true
+    }), 'top-right');
+    
+    // Add scale control
+    map.current.addControl(new maplibregl.ScaleControl({
+      maxWidth: 100,
+      unit: 'metric'
+    }), 'bottom-left');
+    
+    // Add fullscreen control
+    map.current.addControl(new maplibregl.FullscreenControl(), 'top-right');
+    
+    // Add geolocate control
+    map.current.addControl(new maplibregl.GeolocateControl({
+      positionOptions: {
+        enableHighAccuracy: true
+      },
+      trackUserLocation: true,
+    }), 'top-right');
 
+    // Add map interaction handlers
     map.current.on('load', () => {
-      console.log('Map loaded, starting Terra Draw...');
       // Start drawing only after map style is loaded
       if (draw.current) {
         try {
           draw.current.start();
-          console.log('Terra Draw started successfully');
           setTerraDrawStatus('ready');
         } catch (error) {
           console.error('Failed to start Terra Draw:', error);
@@ -362,8 +597,190 @@ export function Map({
       loadGeofences();
       loadDevices();
     });
+    
+    // Add smooth map animations
+    map.current.on('movestart', () => {
+      map.current!.getCanvas().style.cursor = 'grabbing';
+    });
+    
+    map.current.on('moveend', () => {
+      map.current!.getCanvas().style.cursor = '';
+    });
+    
+    // Add geofence hover effects
+    map.current.on('mouseenter', 'geofences-fill', (e) => {
+      map.current!.getCanvas().style.cursor = 'pointer';
+      if (e.features && e.features[0]) {
+        const featureId = e.features[0].id || e.features[0].properties?.id;
+        console.log('Hover - Feature ID:', featureId, 'Type:', typeof featureId);
+        if (featureId !== undefined && featureId !== null && featureId !== '') {
+          try {
+            map.current!.setFilter('geofences-highlight', ['==', 'id', featureId]);
+            map.current!.setPaintProperty('geofences-highlight', 'line-opacity', 0.8);
+          } catch (error) {
+            console.error('Error setting hover filter:', error, 'ID:', featureId);
+          }
+        } else {
+          console.warn('Skipping hover highlight - invalid feature ID:', featureId);
+        }
+      }
+    });
+    
+    map.current.on('mouseleave', 'geofences-fill', () => {
+      map.current!.getCanvas().style.cursor = '';
+      map.current!.setPaintProperty('geofences-highlight', 'line-opacity', 0);
+    });
+    
+    // Add geofence click handler for selection and zoom
+    map.current.on('click', 'geofences-fill', (e) => {
+      console.log('Geofence clicked, event:', e);
+      if (e.features && e.features[0]) {
+        const feature = e.features[0];
+        // Try to get ID from feature.id first, then from properties as backup
+        const geofenceId = feature.id?.toString() || feature.properties?.id?.toString();
+        console.log('Feature:', feature, 'ID from feature.id:', feature.id, 'ID from properties:', feature.properties?.id, 'Final ID:', geofenceId);
+        
+        if (geofenceId) {
+          // Select/deselect geofence
+          if (selectedGeofenceId === geofenceId) {
+            // Deselect if already selected
+            console.log('Deselecting geofence:', geofenceId);
+            setSelectedGeofenceId(null);
+            map.current!.setFilter('geofences-selected', ['==', 'id', '']);
+            map.current!.setFilter('geofences-selected-fill', ['==', 'id', '']);
+          } else {
+            // Select new geofence
+            console.log('Selecting geofence:', geofenceId);
+            setSelectedGeofenceId(geofenceId);
+            console.log('Setting filter for layers with ID:', geofenceId);
+            
+            // Check if the layers exist before applying filters
+            if (map.current!.getLayer('geofences-selected')) {
+              map.current!.setFilter('geofences-selected', ['==', 'id', geofenceId]);
+              console.log('Applied filter to geofences-selected layer');
+            } else {
+              console.error('Layer geofences-selected not found');
+            }
+            
+            if (map.current!.getLayer('geofences-selected-fill')) {
+              map.current!.setFilter('geofences-selected-fill', ['==', 'id', geofenceId]);
+              console.log('Applied filter to geofences-selected-fill layer');
+            } else {
+              console.error('Layer geofences-selected-fill not found');
+            }
+          }
+        }
+
+        // Zoom to geofence on double-click
+        if (feature.geometry.type === 'Polygon') {
+          const coordinates = feature.geometry.coordinates[0] as [number, number][];
+          const bounds = new maplibregl.LngLatBounds();
+          coordinates.forEach(coord => bounds.extend(coord));
+          
+          map.current!.fitBounds(bounds, {
+            padding: 100,
+            duration: 1000,
+            curve: 1.42
+          });
+        }
+      }
+    });
+
+    // Add double-click handler for zoom-to-fit
+    map.current.on('dblclick', 'geofences-fill', (e) => {
+      e.preventDefault(); // Prevent default map zoom
+      if (e.features && e.features[0] && e.features[0].geometry.type === 'Polygon') {
+        const coordinates = e.features[0].geometry.coordinates[0] as [number, number][];
+        const bounds = new maplibregl.LngLatBounds();
+        coordinates.forEach(coord => bounds.extend(coord));
+        
+        map.current!.fitBounds(bounds, {
+          padding: 50,
+          duration: 1200,
+          curve: 1.42
+        });
+      }
+    });
+
+    // Add keyboard shortcuts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return; // Skip if typing in input
+      
+      switch (e.key) {
+        case 'f':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const searchInput = document.querySelector('input[placeholder="Search places..."]') as HTMLInputElement;
+            if (searchInput) {
+              searchInput.focus();
+              searchInput.select();
+            }
+          }
+          break;
+        case 'r':
+          if (e.ctrlKey || e.metaCmd) {
+            e.preventDefault();
+            loadGeofences();
+            loadDevices();
+          }
+          break;
+        case '1':
+          setDrawingMode('select');
+          break;
+        case '2':
+          setDrawingMode('polygon');
+          break;
+        case '3':
+          setDrawingMode('circle');
+          break;
+        case '4':
+          setDrawingMode('point');
+          break;
+        case 'c':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            clearDrawing();
+          }
+          break;
+        case 'Delete':
+        case 'Backspace':
+          console.log('Delete key pressed, selectedGeofenceId:', selectedGeofenceId);
+          if (selectedGeofenceId) {
+            e.preventDefault();
+            const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+            console.log('Found selected geofence for deletion:', selectedGeofence);
+            if (selectedGeofence) {
+              console.log('Setting delete confirmation dialog:', {
+                id: selectedGeofenceId,
+                name: selectedGeofence.name
+              });
+              setShowDeleteConfirmation({
+                id: selectedGeofenceId,
+                name: selectedGeofence.name
+              });
+            }
+          }
+          break;
+        case 'Escape':
+          if (selectedGeofenceId) {
+            // Deselect geofence
+            setSelectedGeofenceId(null);
+            map.current!.setFilter('geofences-selected', ['==', 'id', '']);
+            map.current!.setFilter('geofences-selected-fill', ['==', 'id', '']);
+          } else {
+            setShowResults(false);
+            setSelectedResultIndex(-1);
+          }
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      // Cleanup keyboard listeners
+      document.removeEventListener('keydown', handleKeyDown);
+      
       // Cleanup search marker
       if (searchMarker.current) {
         searchMarker.current.remove();
@@ -408,7 +825,7 @@ export function Map({
 
   // Reload geofences when they change
   useEffect(() => {
-    if (isLoaded && draw.current) {
+    if (isLoaded && map.current) {
       loadGeofences();
     }
   }, [geofences, isLoaded, loadGeofences]);
@@ -517,28 +934,29 @@ export function Map({
             )}
           </div>
 
-          {/* Search Results */}
+          {/* Enhanced Search Results */}
           {showResults && searchResults.length > 0 && (
-            <div className="absolute top-full mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto z-20">
+            <div className="absolute top-full mt-2 w-full bg-white/95 backdrop-blur-md border border-gray-200 rounded-xl shadow-2xl max-h-80 overflow-y-auto z-30 animate-in slide-in-from-top-2 duration-300">
               {searchResults.map((result, index) => (
                 <button
                   key={index}
                   onClick={() => flyToLocation(result.center, result.place_name)}
-                  className={`w-full px-4 py-3 text-left border-b border-gray-100 last:border-b-0 focus:outline-none transition-colors ${
+                  className={`w-full px-6 py-4 text-left border-b border-gray-100 last:border-b-0 focus:outline-none transition-all duration-200 first:rounded-t-xl last:rounded-b-xl group ${
                     index === selectedResultIndex 
-                      ? 'bg-blue-50 border-blue-200' 
-                      : 'hover:bg-gray-50'
+                      ? 'bg-blue-50 border-blue-200 shadow-md' 
+                      : 'hover:bg-blue-50 hover:shadow-md'
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {result.place_name.split(',')[0]}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {result.place_name}
-                      </p>
+                  <div className="flex items-start space-x-4">
+                    <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                      <MapPin className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{result.place_name.split(',')[0]}</p>
+                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">{result.place_name}</p>
+                      <div className="flex items-center mt-2 text-xs text-gray-500">
+                        <span className="bg-gray-100 px-2 py-1 rounded-full">{result.properties?.type || 'Location'}</span>
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -624,27 +1042,259 @@ export function Map({
         </div>
       </div>
 
-      {/* Map Legend */}
-      <div className="absolute top-4 right-4 bg-white rounded-lg shadow-md p-3 text-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span>Active Device</span>
+      {/* Real-time Statistics Panel */}
+      <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 text-sm min-w-48">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+          <div className="w-4 h-4 rounded bg-gradient-to-r from-green-500 to-blue-500"></div>
+          <span className="font-semibold text-gray-900">Live Status</span>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Active Devices:</span>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="font-semibold text-green-600">
+                {devices?.filter(d => d.status === 'online').length || 0}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-            <span>Inactive Device</span>
+          
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Total Devices:</span>
+            <span className="font-semibold text-blue-600">{devices?.length || 0}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-1 bg-blue-500"></div>
-            <span>Polygon Geofence</span>
+          
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Geofences:</span>
+            <span className="font-semibold text-purple-600">{geofences?.length || 0}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-1 bg-green-500"></div>
-            <span>Circle Geofence</span>
+        </div>
+        
+        <div className="mt-3 pt-2 border-t border-gray-100">
+          <div className="text-xs text-gray-500 flex items-center gap-1">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            <span>Auto-refresh: 30s</span>
           </div>
         </div>
       </div>
+
+      {/* Enhanced Map Legend */}
+      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 text-sm max-w-xs">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+          <div className="w-4 h-4 rounded bg-gradient-to-r from-blue-500 to-purple-600"></div>
+          <span className="font-semibold text-gray-900">Map Legend</span>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <div className="font-medium text-gray-700 mb-1">Devices</div>
+            <div className="space-y-1 ml-2">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <div className="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-pulse opacity-75"></div>
+                </div>
+                <span className="text-xs">Online Device</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                <span className="text-xs">Offline Device</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="font-medium text-gray-700 mb-1">Geofences</div>
+            <div className="space-y-1 ml-2">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-1 bg-blue-500 rounded-full shadow-sm"></div>
+                <span className="text-xs">Polygon Area</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-1 bg-green-500 rounded-full shadow-sm"></div>
+                <span className="text-xs">Circle Area</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-1 bg-purple-500 rounded-full shadow-sm"></div>
+                <span className="text-xs">Hover Highlight</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 pt-2 border-t border-gray-100">
+          <div className="text-xs text-gray-500 flex items-center gap-1">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            <span>Live Updates Active</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Keyboard Shortcuts Help */}
+      <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 text-sm max-w-xs">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+          <div className="w-4 h-4 rounded bg-gradient-to-r from-purple-500 to-pink-500"></div>
+          <span className="font-semibold text-gray-900">Shortcuts</span>
+        </div>
+        <div className="space-y-2 text-xs">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Focus Search:</span>
+            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Ctrl+F</kbd>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Refresh Data:</span>
+            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Ctrl+R</kbd>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Select Mode:</span>
+            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">1</kbd>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Draw Polygon:</span>
+            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">2</kbd>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Draw Circle:</span>
+            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">3</kbd>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Clear Drawing:</span>
+            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Ctrl+C</kbd>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Delete Selected:</span>
+            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Del</kbd>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Deselect:</span>
+            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Esc</kbd>
+          </div>
+        </div>
+        <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-500">
+          <div className="flex items-center gap-1">
+            <span>⌨️ Click to select • Double-click to zoom</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Selected Geofence Info Panel */}
+      {selectedGeofenceId && (() => {
+        console.log('Rendering selection panel for ID:', selectedGeofenceId);
+        console.log('Available geofences:', geofences.map(g => ({ id: g.id, name: g.name })));
+        const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+        console.log('Found selected geofence:', selectedGeofence);
+        if (!selectedGeofence) return null;
+        
+        return (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 text-sm max-w-xs z-40 ml-20">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+              <div className="w-4 h-4 rounded bg-gradient-to-r from-red-500 to-orange-500"></div>
+              <span className="font-semibold text-gray-900">Selected Geofence</span>
+            </div>
+            
+            <div className="space-y-2">
+              <div>
+                <span className="font-medium text-gray-700">Name:</span>
+                <p className="text-gray-900 font-semibold">{selectedGeofence.name}</p>
+              </div>
+              
+              <div>
+                <span className="font-medium text-gray-700">Type:</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className={`w-3 h-1 rounded-full ${
+                    selectedGeofence.type === 'circle' ? 'bg-green-500' : 'bg-blue-500'
+                  }`}></div>
+                  <span className="text-gray-600 capitalize">{selectedGeofence.type}</span>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    console.log('Delete button clicked, selectedGeofenceId:', selectedGeofenceId);
+                    const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
+                    console.log('Found geofence for deletion:', selectedGeofence);
+                    if (selectedGeofence) {
+                      console.log('Setting delete confirmation dialog from button');
+                      setShowDeleteConfirmation({
+                        id: selectedGeofenceId,
+                        name: selectedGeofence.name
+                      });
+                    } else {
+                      console.error('Could not find geofence to delete');
+                    }
+                  }}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-xs font-medium transition-colors"
+                >
+                  🗑️ Delete
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedGeofenceId(null);
+                    map.current!.setFilter('geofences-selected', ['==', 'id', '']);
+                    map.current!.setFilter('geofences-selected-fill', ['==', 'id', '']);
+                  }}
+                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg text-xs font-medium transition-colors"
+                >
+                  ✕ Deselect
+                </button>
+              </div>
+            </div>
+            
+            <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-500">
+              <div className="flex items-center gap-1">
+                <span>Press Del to delete • Esc to deselect</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirmation && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-6 max-w-md mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                <div className="w-6 h-6 text-red-600">🗑️</div>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Delete Geofence</h3>
+                <p className="text-sm text-gray-600">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <p className="text-sm text-gray-700">
+                Are you sure you want to delete{' '}
+                <span className="font-semibold text-gray-900">"{showDeleteConfirmation.name}"</span>?
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirmation(null)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              
+              <button
+                onClick={() => {
+                    onGeofenceDelete(showDeleteConfirmation.id);
+                  
+                  setShowDeleteConfirmation(null);
+                  setSelectedGeofenceId(null);
+                  map.current!.setFilter('geofences-selected', ['==', 'id', '']);
+                  map.current!.setFilter('geofences-selected-fill', ['==', 'id', '']);
+                }}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

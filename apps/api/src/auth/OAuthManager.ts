@@ -3,6 +3,7 @@ import { URLSearchParams } from 'url';
 import axios from 'axios';
 import { encryptCredentials, decryptCredentials } from '../utils/encryption.js';
 import { oauth, urls } from '../config/index.js';
+import { query } from '@geofence/db';
 
 interface OAuthConfig {
   clientId: string;

@@ -57,14 +57,14 @@ export const rateLimit = (config: RateLimitConfig) => {
     }
 
     // Get or create rate limit entry
-    if (!rateLimitStore[key] || rateLimitStore[key]?.resetTime < now) {
-      rateLimitStore[key] = {
+    if (!rateLimitStore[key!] || rateLimitStore[key!]?.resetTime < now) {
+      rateLimitStore[key!] = {
         count: 0,
         resetTime
       };
     }
 
-    const entry = rateLimitStore[key]!;
+    const entry = rateLimitStore[key!]!;
 
     // Check if limit exceeded
     if (entry.count >= max) {

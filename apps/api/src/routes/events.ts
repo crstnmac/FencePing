@@ -39,10 +39,10 @@ router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), a
   try {
     // Using query() function for automatic connection management
     const { limit, offset, device_id, geofence_id, event_type, from_date, to_date } = req.query as any;
-    
+
     // For development, get the first available organization if no auth
     let accountId = req.accountId;
-    
+
     if (!accountId) {
       const orgResult = await query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (orgResult.rows.length > 0) {
@@ -51,38 +51,38 @@ router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), a
         return res.status(400).json(ERROR_RESPONSES.ORGANIZATION_NOT_FOUND);
       }
     }
-    
+
     let whereClause = `
       WHERE ge.account_id = $1
     `;
     const values = [accountId];
     let paramCount = 2;
-    
+
     if (device_id) {
       whereClause += ` AND ge.device_id = $${paramCount++}`;
       values.push(device_id);
     }
-    
+
     if (geofence_id) {
       whereClause += ` AND ge.geofence_id = $${paramCount++}`;
       values.push(geofence_id);
     }
-    
+
     if (event_type) {
       whereClause += ` AND ge.type = $${paramCount++}`;
       values.push(event_type);
     }
-    
+
     if (from_date) {
       whereClause += ` AND ge.ts >= $${paramCount++}`;
       values.push(from_date);
     }
-    
+
     if (to_date) {
       whereClause += ` AND ge.ts <= $${paramCount++}`;
       values.push(to_date);
     }
-    
+
     const queryText = `
       SELECT
         ge.id,
@@ -105,11 +105,11 @@ router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), a
       LIMIT $${paramCount++}
       OFFSET $${paramCount}
     `;
-    
+
     values.push(limit, offset);
     const result = await query(queryText, values);
-    
-    const events = result.rows.map(row => ({
+
+    const events = result.rows.map((row: any) => ({
       id: row.id,
       event_type: row.event_type,
       device: row.device_id ? {
@@ -128,9 +128,9 @@ router.get('/', requireAuth, requireAccount, validateQuery(EventsQuerySchema), a
       timestamp: row.timestamp,
       processed_at: row.processed_at
     }));
-    
+
     const totalCount = result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0;
-    
+
     res.json({
       success: true,
       data: events,
@@ -175,16 +175,16 @@ router.get('/:eventId', requireAuth, requireAccount, async (req, res) => {
       WHERE ge.id = $1
       AND (d.account_id = $2 OR g.account_id = $2)
     `;
-    
+
     const result = await query(queryText, [req.params.eventId, req.accountId]);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'Event not found'
       });
     }
-    
+
     const row = result.rows[0];
     const event = {
       id: row.id,
@@ -207,7 +207,7 @@ router.get('/:eventId', requireAuth, requireAccount, async (req, res) => {
       timestamp: row.timestamp,
       processed_at: row.processed_at
     };
-    
+
     res.json({
       success: true,
       data: event
@@ -226,7 +226,7 @@ router.get('/:eventId', requireAuth, requireAccount, async (req, res) => {
 router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) => {
   try {
     // Using query() function for automatic connection management
-    
+
     // First, verify the event exists and belongs to the organization
     const eventQuery = `
       SELECT
@@ -243,21 +243,21 @@ router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) =>
       JOIN devices d ON ge.device_id = d.id
       WHERE ge.id = $1 AND d.account_id = $2
     `;
-    
+
     const eventResult = await query(eventQuery, [req.params.eventId, req.accountId]);
-    
+
     if (eventResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'Event not found'
       });
     }
-    
+
     const event = eventResult.rows[0];
-    
+
     // All events in geofence_events table are geofence events
     const triggerType = event.event_type;
-    
+
     // Create a synthetic geofence event for replay
     const replayEvent = {
       type: triggerType,
@@ -275,7 +275,7 @@ router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) =>
         original_timestamp: event.timestamp
       }
     };
-    
+
     // Publish event replay to Kafka for processing by automation workers
     try {
       const kafkaProducer = getKafkaProducer();
@@ -284,14 +284,14 @@ router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) =>
       console.error('Error publishing event replay to Kafka:', kafkaError);
       // Don't fail the request if Kafka publishing fails, just log it
     }
-    
+
     // Create a new geofence event record to indicate replay
     const replayQuery = `
       INSERT INTO geofence_events (type, device_id, geofence_id, ts, event_hash)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id
     `;
-    
+
     const replayResult = await query(replayQuery, [
       event.event_type,
       event.device_id,
@@ -299,7 +299,7 @@ router.post('/:eventId/replay', requireAuth, requireAccount, async (req, res) =>
       replayEvent.timestamp,
       `replay_${event.id}_${Date.now()}`
     ]);
-    
+
     res.json({
       success: true,
       message: 'Event replay initiated',
@@ -343,9 +343,9 @@ router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res)
       WHERE d_exec.gevent_id = $1 AND d.account_id = $2
       ORDER BY d_exec.created_at DESC
     `;
-    
+
     const result = await query(queryText, [req.params.eventId, req.accountId]);
-    
+
     if (result.rows.length === 0) {
       // Check if the event exists at all
       const eventExistsQuery = `
@@ -355,7 +355,7 @@ router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res)
         WHERE ge.id = $1 AND d.account_id = $2
       `;
       const eventExists = await query(eventExistsQuery, [req.params.eventId, req.accountId]);
-      
+
       if (eventExists.rows.length === 0) {
         return res.status(404).json({
           success: false,
@@ -363,8 +363,8 @@ router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res)
         });
       }
     }
-    
-    const executions = result.rows.map(row => ({
+
+    const executions = result.rows.map((row: any) => ({
       id: row.id,
       status: row.status,
       response_data: row.response_data,
@@ -380,7 +380,7 @@ router.get('/:eventId/executions', requireAuth, requireAccount, async (req, res)
         type: row.integration_type
       }
     }));
-    
+
     res.json({
       success: true,
       data: executions,
@@ -400,10 +400,10 @@ router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
   try {
     // Using query() function for automatic connection management
     const limit = Math.min(parseInt(req.query.limit as string || '50'), 100);
-    
+
     // For development, get the first available organization if no auth
     let accountId = req.accountId;
-    
+
     if (!accountId) {
       const orgResult = await query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (orgResult.rows.length > 0) {
@@ -415,7 +415,7 @@ router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
         });
       }
     }
-    
+
     const queryText = `
       SELECT 
         ge.id,
@@ -439,16 +439,16 @@ router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
       ORDER BY ge.ts DESC
       LIMIT $2
     `;
-    
+
     const result = await query(queryText, [accountId, limit]);
-    
-    const events = result.rows.map(row => {
+
+    const events = result.rows.map((row: any) => {
       // Map database event types to frontend event types
       let eventType = row.type;
       if (row.type === 'enter') eventType = 'geofence_enter';
       if (row.type === 'exit') eventType = 'geofence_exit';
       if (row.type === 'dwell') eventType = 'geofence_dwell';
-      
+
       // Add device status events
       if (row.device_status === 'online') {
         return {
@@ -471,7 +471,7 @@ router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
           } : null
         };
       }
-      
+
       // Add automation events
       const automationEvents = [];
       if (row.automation_count > 0) {
@@ -513,7 +513,7 @@ router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
           });
         }
       }
-      
+
       // Return main geofence event
       return {
         id: row.id,
@@ -533,7 +533,7 @@ router.get('/realtime', requireAuth, requireAccount, async (req, res) => {
         }
       };
     });
-    
+
     res.json(events);
   } catch (error) {
     console.error('Error fetching real-time events:', error);

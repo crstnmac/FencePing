@@ -15,10 +15,10 @@ router.get('/', requireAuth, requireAccount, validateQuery(AnalyticsQuerySchema)
   try {
     // Using query() function for automatic connection management
     const { range } = req.query as any;
-    
+
     // For development, get the first available organization if no auth
     let accountId = req.accountId;
-    
+
     if (!accountId) {
       const orgResult = await query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (orgResult.rows.length > 0) {
@@ -30,11 +30,11 @@ router.get('/', requireAuth, requireAccount, validateQuery(AnalyticsQuerySchema)
         });
       }
     }
-    
+
     // Calculate date range
     const now = new Date();
     let startDate = new Date();
-    
+
     switch (range) {
       case '24h':
         startDate.setHours(now.getHours() - 24);
@@ -49,7 +49,7 @@ router.get('/', requireAuth, requireAccount, validateQuery(AnalyticsQuerySchema)
         startDate.setDate(now.getDate() - 90);
         break;
     }
-    
+
     // Device activity over time
     const deviceActivityQuery = `
       WITH date_series AS (
@@ -75,7 +75,7 @@ router.get('/', requireAuth, requireAccount, validateQuery(AnalyticsQuerySchema)
       LEFT JOIN daily_activity da ON ds.day = da.day
       ORDER BY ds.day
     `;
-    
+
     // Automation performance stats - simplified to avoid enum issues
     const automationStatsQuery = `
       SELECT 
@@ -94,12 +94,12 @@ router.get('/', requireAuth, requireAccount, validateQuery(AnalyticsQuerySchema)
       ORDER BY total_rules DESC
       LIMIT 10
     `;
-    
+
     // Trend calculations (compare with previous period)
     const prevStartDate = new Date(startDate);
     const timeDiff = now.getTime() - startDate.getTime();
     prevStartDate.setTime(startDate.getTime() - timeDiff);
-    
+
     const trendsQuery = `
       SELECT 
         'events' as metric,
@@ -127,45 +127,45 @@ router.get('/', requireAuth, requireAccount, validateQuery(AnalyticsQuerySchema)
       FROM automations auto
       WHERE auto.account_id = $1
     `;
-    
+
     const [deviceActivityResult, automationStatsResult, trendsResult] = await Promise.all([
       query(deviceActivityQuery, [accountId, startDate, now]),
       query(automationStatsQuery, [accountId, startDate]),
       query(trendsQuery, [accountId, startDate, now, prevStartDate])
     ]);
-    
+
     // Process trends
-    const trends = {};
-    trendsResult.rows.forEach(row => {
+    const trends: any = {};
+    trendsResult.rows.forEach((row: any) => {
       const current = parseInt(row.current_count) || 0;
       const previous = parseInt(row.previous_count) || 0;
-      
+
       let trendPercent = 0;
       if (previous > 0) {
         trendPercent = ((current - previous) / previous * 100);
       } else if (current > 0) {
         trendPercent = 100;
       }
-      
+
       const sign = trendPercent >= 0 ? '+' : '';
       trends[`${row.metric}Trend`] = `${sign}${trendPercent.toFixed(1)}%`;
     });
-    
+
     // Format device activity
-    const deviceActivity = deviceActivityResult.rows.map(row => ({
+    const deviceActivity = deviceActivityResult.rows.map((row: any) => ({
       date: row.date,
       online: parseInt(row.online),
       offline: parseInt(row.offline)
     }));
-    
+
     // Format automation stats
-    const automationStats = automationStatsResult.rows.map(row => ({
+    const automationStats = automationStatsResult.rows.map((row: any) => ({
       name: row.name,
       success: parseFloat(row.success_rate) || 0,
       failed: 100 - (parseFloat(row.success_rate) || 0),
       total: parseInt(row.total)
     }));
-    
+
     res.json({
       success: true,
       data: {

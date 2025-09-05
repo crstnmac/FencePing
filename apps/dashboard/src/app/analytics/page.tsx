@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Header } from '../../components/Header';
-import { useQuery } from '@tanstack/react-query';
 import { useEvents, useDevices, useGeofences, useAutomations, useAnalytics } from '../../hooks/useApi';
 import {
   BarChart3,

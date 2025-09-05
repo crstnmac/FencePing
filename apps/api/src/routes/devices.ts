@@ -95,8 +95,19 @@ router.get('/', optionalAuth, requireAuth, async (req, res) => {
         id,
         name,
         device_key,
+        device_type,
+        status,
+        last_heartbeat as last_seen,
         meta,
-        created_at
+        created_at,
+        CASE 
+          WHEN meta ? 'longitude' THEN (meta->>'longitude')::float 
+          ELSE NULL 
+        END as longitude,
+        CASE 
+          WHEN meta ? 'latitude' THEN (meta->>'latitude')::float 
+          ELSE NULL 
+        END as latitude
       FROM devices
       WHERE account_id = $1
       ORDER BY created_at DESC
@@ -1437,7 +1448,7 @@ router.get('/:deviceId/certificates', requireAuth, async (req, res) => {
     
     res.json({
       success: true,
-      data: result.rows.map(cert => ({
+      data: result.rows.map((cert:any) => ({
         certificateId: cert.id,
         serial: cert.certificate_serial,
         issuedAt: cert.issued_at,

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { query as dbQuery } from '@geofence/db';
 import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
-import { generateApiKey, hashData } from '../utils/encryption.js';
+import { generateApiKey } from '../utils/encryption.js';
 
 const router = Router();
 
@@ -44,7 +44,7 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
     res.json({
       success: true,
       data: {
-        apiKeys: result.rows.map(key => ({
+        apiKeys: result.rows.map((key:any) => ({
           ...key,
           // Don't expose the actual key hash
           key_hash: undefined

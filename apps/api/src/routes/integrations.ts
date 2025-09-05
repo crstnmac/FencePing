@@ -112,10 +112,10 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
       WHERE account_id = $1
       ORDER BY created_at DESC
     `;
-    
+
     // For development, get the first available organization if no auth
     let accountId = req.accountId;
-    
+
     if (!accountId) {
       const orgResult = await query('SELECT id FROM accounts ORDER BY created_at LIMIT 1');
       if (orgResult.rows.length > 0) {
@@ -127,16 +127,16 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
         });
       }
     }
-    
+
     const result = await query(queryText, [accountId]);
-    
+
     // Don't return sensitive credentials in list view
-    const integrations = result.rows.map(integration => ({
+    const integrations = result.rows.map((integration: any) => ({
       ...integration,
       credentials: undefined,
       has_credentials: true
     }));
-    
+
     res.json({
       success: true,
       data: integrations,
@@ -156,13 +156,13 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
 router.post('/', requireAuth, requireAccount, validateBody(CreateIntegrationSchema), async (req, res) => {
   try {
     // Using query() function for automatic connection management
-    
+
     const queryText = `
       INSERT INTO integrations (name, type, account_id, config, credentials)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, name, type, config, is_active, created_at
     `;
-    
+
     const result = await query(queryText, [
       req.body.name,
       req.body.type,
@@ -170,13 +170,13 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateIntegrationSche
       JSON.stringify(req.body.config),
       JSON.stringify(req.body.credentials)
     ]);
-    
+
     const integration = {
       ...result.rows[0],
       credentials: undefined,
       has_credentials: true
     };
-    
+
     res.status(201).json({
       success: true,
       data: integration
@@ -207,22 +207,22 @@ router.get('/:integrationId', requireAuth, requireAccount, async (req, res) => {
       FROM integrations 
       WHERE id = $1 AND account_id = $2
     `;
-    
+
     const result = await query(queryText, [req.params.integrationId, req.accountId]);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'Integration not found'
       });
     }
-    
+
     const integration = {
       ...result.rows[0],
       credentials: undefined,
       has_credentials: true
     };
-    
+
     res.json({
       success: true,
       data: integration
@@ -244,59 +244,59 @@ router.put('/:integrationId', requireAuth, requireAccount, validateBody(UpdateIn
     const updates = [];
     const values = [];
     let paramCount = 1;
-    
+
     if (req.body.name !== undefined) {
       updates.push(`name = $${paramCount++}`);
       values.push(req.body.name);
     }
-    
+
     if (req.body.config !== undefined) {
       updates.push(`config = $${paramCount++}`);
       values.push(JSON.stringify(req.body.config));
     }
-    
+
     if (req.body.credentials !== undefined) {
       updates.push(`credentials = $${paramCount++}`);
       values.push(JSON.stringify(req.body.credentials));
     }
-    
+
     if (req.body.is_active !== undefined) {
       updates.push(`is_active = $${paramCount++}`);
       values.push(req.body.is_active);
     }
-    
+
     if (updates.length === 0) {
       return res.status(400).json({
         success: false,
         error: 'No updates provided'
       });
     }
-    
+
     updates.push(`updated_at = NOW()`);
     values.push(req.params.integrationId, req.accountId);
-    
+
     const queryText = `
       UPDATE integrations 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount++} AND account_id = $${paramCount}
       RETURNING id, name, type, config, is_active, updated_at
     `;
-    
+
     const result = await query(queryText, values);
-    
+
     if (result.rowCount === 0) {
       return res.status(404).json({
         success: false,
         error: 'Integration not found'
       });
     }
-    
+
     const integration = {
       ...result.rows[0],
       credentials: undefined,
       has_credentials: true
     };
-    
+
     res.json({
       success: true,
       data: integration
@@ -315,7 +315,7 @@ router.put('/:integrationId', requireAuth, requireAccount, validateBody(UpdateIn
 router.delete('/:integrationId', requireAuth, requireAccount, async (req, res) => {
   try {
     // Using query() function for automatic connection management
-    
+
     // Check if integration is used in any automation rules
     const usageQuery = `
       SELECT COUNT(*) as rule_count 
@@ -324,7 +324,7 @@ router.delete('/:integrationId', requireAuth, requireAccount, async (req, res) =
     `;
     const usageResult = await query(usageQuery, [req.params.integrationId, req.accountId]);
     const ruleCount = parseInt(usageResult.rows[0]?.rule_count || '0');
-    
+
     if (ruleCount > 0) {
       return res.status(400).json({
         success: false,
@@ -334,17 +334,17 @@ router.delete('/:integrationId', requireAuth, requireAccount, async (req, res) =
         }
       });
     }
-    
-    const query = 'DELETE FROM integrations WHERE id = $1 AND account_id = $2';
+
+    const queryText = 'DELETE FROM integrations WHERE id = $1 AND account_id = $2';
     const result = await query(queryText, [req.params.integrationId, req.accountId]);
-    
+
     if (result.rowCount === 0) {
       return res.status(404).json({
         success: false,
         error: 'Integration not found'
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Integration deleted successfully'
@@ -362,7 +362,7 @@ router.delete('/:integrationId', requireAuth, requireAccount, async (req, res) =
 router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(TestIntegrationSchema), async (req, res) => {
   try {
     // Using query() function for automatic connection management
-    
+
     // Get integration with credentials for testing
     const queryText = `
       SELECT 
@@ -375,25 +375,25 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
       FROM integrations 
       WHERE id = $1 AND account_id = $2
     `;
-    
+
     const result = await query(queryText, [req.params.integrationId, req.accountId]);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'Integration not found'
       });
     }
-    
+
     const integration = result.rows[0];
-    
+
     if (!integration.is_active) {
       return res.status(400).json({
         success: false,
         error: 'Integration is not active'
       });
     }
-    
+
     // Create test payload based on integration type
     const testPayload = req.body.test_payload || {
       event: {
@@ -409,10 +409,10 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
       message: req.body.message,
       test_mode: true
     };
-    
+
     // Implement actual integration testing by calling the real integration handlers
     let testResult: any = {};
-    
+
     try {
       // Create test automation event
       const testEvent = {
@@ -425,7 +425,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
         timestamp: new Date().toISOString(),
         test_mode: true
       };
-    
+
       switch (integration.type) {
         case INTEGRATION_TYPES.SLACK:
           // Test Slack integration with actual API call
@@ -436,7 +436,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
               channel: integration.config.channel,
               username: 'Geofence Test Bot'
             };
-            
+
             try {
               await axios.post(integration.credentials.webhook_url, testPayload, {
                 timeout: 5000
@@ -463,12 +463,12 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
             };
           }
           break;
-        
+
         case INTEGRATION_TYPES.NOTION:
           // Test Notion integration with actual API call
           if (integration.credentials.access_token) {
             const axios = (await import('axios')).default;
-            
+
             try {
               // Test with a simple database query
               await axios.post(
@@ -483,7 +483,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
                   timeout: 5000
                 }
               );
-              
+
               testResult = {
                 status: 'success',
                 message: 'Successfully connected to Notion database',
@@ -506,12 +506,12 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
             };
           }
           break;
-        
+
         case INTEGRATION_TYPES.GOOGLE_SHEETS:
           // Test Google Sheets integration with actual API call
           if (integration.credentials.access_token) {
             const axios = (await import('axios')).default;
-            
+
             try {
               // Test by reading spreadsheet metadata
               await axios.get(
@@ -523,7 +523,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
                   timeout: 5000
                 }
               );
-              
+
               testResult = {
                 status: 'success',
                 message: 'Successfully connected to Google Sheets',
@@ -547,12 +547,12 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
             };
           }
           break;
-        
+
         case INTEGRATION_TYPES.WHATSAPP:
           // Test WhatsApp integration (Business API or Twilio)
           if (integration.credentials.access_token) {
             const axios = (await import('axios')).default;
-            
+
             try {
               // Test WhatsApp Business API connection
               if (integration.config.phone_number_id) {
@@ -566,7 +566,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
                   }
                 );
               }
-              
+
               testResult = {
                 status: 'success',
                 message: 'Successfully connected to WhatsApp Business API',
@@ -589,7 +589,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
             };
           }
           break;
-          
+
         case INTEGRATION_TYPES.WEBHOOK:
           // Test webhook endpoint
           if (integration.credentials.url) {
@@ -600,14 +600,14 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
               event: testEvent,
               timestamp: new Date().toISOString()
             };
-            
+
             try {
               if (method === 'post') {
                 await axios.post(integration.credentials.url, testPayload, { timeout: 5000 });
               } else if (method === 'get') {
                 await axios.get(integration.credentials.url, { timeout: 5000 });
               }
-              
+
               testResult = {
                 status: 'success',
                 message: 'Test webhook sent successfully',
@@ -631,7 +631,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
             };
           }
           break;
-        
+
         default:
           testResult = {
             status: 'error',
@@ -646,7 +646,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
         error: testError instanceof Error ? testError.message : 'Unknown error'
       };
     }
-    
+
     res.json({
       success: true,
       data: {
@@ -660,7 +660,7 @@ router.post('/:integrationId/test', requireAuth, requireAccount, validateBody(Te
         timestamp: new Date().toISOString()
       }
     });
-    
+
   } catch (error) {
     console.error('Error testing integration:', error);
     res.status(500).json({
@@ -741,7 +741,7 @@ router.get('/types/schemas', async (_req, res) => {
       ]
     }
   };
-  
+
   res.json({
     success: true,
     data: schemas
