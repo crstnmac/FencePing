@@ -13,7 +13,6 @@ services:
       POSTGRES_INITDB_ARGS: --auth-host=md5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
     expose:
       - "5432"
