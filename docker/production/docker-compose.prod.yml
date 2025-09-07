@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-geofence}
       POSTGRES_USER: ${POSTGRES_USER:-geofence}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geofence_dev_password}
       POSTGRES_HOST_AUTH_METHOD: scram-sha-256
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
     volumes:
@@ -29,7 +29,7 @@ services:
   # Redis for caching and state management
   redis:
     image: redis:8-alpine
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-redis_dev_password}"]
     volumes:
       - redis_data:/data
     expose:
@@ -94,7 +94,7 @@ services:
       EMQX_CLUSTER__STATIC__SEEDS: '[emqx@127.0.0.1]'
       EMQX_LOADED_PLUGINS: 'emqx_recon,emqx_retainer,emqx_management,emqx_dashboard'
       EMQX_DASHBOARD__DEFAULT_USERNAME: ${EMQX_USERNAME:-admin}
-      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_PASSWORD}
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_PASSWORD:-emqx_dev_password}
     expose:
       - "1883"   # MQTT
       - "8083"   # MQTT over WebSocket
@@ -118,10 +118,11 @@ services:
       dockerfile: docker/production/Dockerfile.api
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD:-geofence_dev_password}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       KAFKA_BROKERS: kafka:9092
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production_12345678901234567890}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev_encryption_key_change_in_production_32_bytes}
       JWT_EXPIRES_IN: 7d
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
@@ -190,11 +191,14 @@ services:
       dockerfile: docker/production/Dockerfile.mqtt-ingestion
     environment:
       NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD:-geofence_dev_password}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
       MQTT_BROKER_URL: mqtt://mqtt-broker:1883
       KAFKA_BROKERS: kafka:9092
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       LOG_LEVEL: info
     depends_on:
+      postgres:
+        condition: service_healthy
       mqtt-broker:
         condition: service_healthy
       kafka:
@@ -212,8 +216,8 @@ services:
       dockerfile: docker/production/Dockerfile.geofence-engine
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD:-geofence_dev_password}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       KAFKA_BROKERS: kafka:9092
       LOG_LEVEL: info
     depends_on:
@@ -234,8 +238,8 @@ services:
       dockerfile: docker/production/Dockerfile.automation-workers
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD:-geofence_dev_password}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       KAFKA_BROKERS: kafka:9092
       LOG_LEVEL: info
     depends_on:
@@ -271,7 +275,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-grafana_dev_password}
       GF_USERS_ALLOW_SIGN_UP: 'false'
     volumes:
       - grafana_data:/var/lib/grafana
