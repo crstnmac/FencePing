@@ -12,34 +12,18 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'geofence-api'
-    static_configs:
-      - targets: ['api:3001']
-    metrics_path: '/health'
-    scrape_interval: 30s
+  # Note: The following services don't currently expose Prometheus metrics
+  # They are commented out to prevent 404 errors in logs
+  # Uncomment and configure proper metrics endpoints when metrics are implemented
+  
+  # - job_name: 'geofence-api'
+  #   static_configs:
+  #     - targets: ['api:3001']
+  #   metrics_path: '/metrics'
+  #   scrape_interval: 30s
 
-  - job_name: 'geofence-dashboard'
-    static_configs:
-      - targets: ['dashboard:3002']
-    metrics_path: '/'
-    scrape_interval: 30s
-
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['postgres:5432']
-    scrape_interval: 60s
-
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis:6379']
-    scrape_interval: 60s
-
-  - job_name: 'mqtt-broker'
-    static_configs:
-      - targets: ['mqtt-broker:1883']
-    scrape_interval: 60s
-
-  - job_name: 'kafka'
-    static_configs:
-      - targets: ['kafka:9092']
-    scrape_interval: 60s
+  # - job_name: 'geofence-dashboard'
+  #   static_configs:
+  #     - targets: ['dashboard:3002']
+  #   metrics_path: '/metrics'
+  #   scrape_interval: 30s
