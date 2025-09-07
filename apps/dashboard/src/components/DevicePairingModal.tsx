@@ -35,9 +35,13 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
   const generatePairingCodeMutation = useGeneratePairingCode();
   const completePairingMutation = useCompletePairing();
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const isGeneratingRef = useRef(false);
 
   // Memoize generateNewPairingCode function to prevent useEffect re-runs
   const generateNewPairingCode = useCallback(async () => {
+    if (isGeneratingRef.current) return; // Prevent multiple simultaneous generations
+    
+    isGeneratingRef.current = true;
     try {
       const result = await generatePairingCodeMutation.mutateAsync();
       setPairingCode(result);
@@ -45,33 +49,42 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
       setCopySuccess(false);
     } catch (error) {
       console.error('Failed to generate pairing code:', error);
+    } finally {
+      isGeneratingRef.current = false;
     }
   }, [generatePairingCodeMutation]);
 
-  // Auto-generate pairing code when modal opens
+  // Auto-generate pairing code when modal opens (run only once per modal open)
   useEffect(() => {
-    if (isOpen && !pairingCode) {
+    if (isOpen && !pairingCode && !isGeneratingRef.current) {
       generateNewPairingCode();
     }
-  }, [isOpen, generateNewPairingCode, pairingCode]);
+  }, [isOpen, pairingCode, generateNewPairingCode]);
 
   // Countdown timer for pairing code expiration
   useEffect(() => {
-    if (pairingCode && countdown > 0) {
-      countdownRef.current = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
-    } else if (pairingCode && countdown === 0) {
-      // Auto-regenerate pairing code when expired
-      generateNewPairingCode();
+    if (!pairingCode || countdown <= 0) {
+      return; // Don't start countdown if no pairing code or countdown finished
     }
+
+    countdownRef.current = setTimeout(() => {
+      setCountdown(prev => prev - 1);
+    }, 1000);
 
     return () => {
       if (countdownRef.current) {
         clearTimeout(countdownRef.current);
       }
     };
-  }, [countdown, pairingCode, generateNewPairingCode]);
+  }, [countdown, pairingCode]);
+
+  // Handle pairing code expiration (separate effect to avoid infinite loop)
+  useEffect(() => {
+    if (pairingCode && countdown === 0) {
+      // Clear expired pairing code and allow user to manually regenerate
+      setPairingCode(null);
+    }
+  }, [countdown, pairingCode]);
 
   // Generate QR code URL when pairing code is available
   useEffect(() => {
@@ -83,6 +96,8 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
         timestamp: Date.now()
       });
       setQrCodeUrl(generateQRCode(qrData));
+    } else {
+      setQrCodeUrl('');
     }
   }, [pairingCode]);
 
