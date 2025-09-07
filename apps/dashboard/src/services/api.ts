@@ -489,6 +489,32 @@ export const deviceService = {
     return response.data;
   },
 
+  // Get pairing status
+  async getPairingStatus(code: string): Promise<{ 
+    success: boolean;
+    data: { 
+      status: 'valid' | 'expired' | 'used';
+      pairingCode: string;
+      expiresAt: string;
+      usedAt?: string;
+      isValid: boolean;
+      accountId: string;
+    } 
+  }> {
+    const response = await apiRequest<{ 
+      success: boolean;
+      data: { 
+        status: 'valid' | 'expired' | 'used';
+        pairingCode: string;
+        expiresAt: string;
+        usedAt?: string;
+        isValid: boolean;
+        accountId: string;
+      } 
+    }>(`/api/devices/pairing/status/${code}`);
+    return response;
+  },
+
   // Get device status
   async getDeviceStatus(deviceId: string): Promise<DeviceStatus> {
     const response = await apiRequest<{ data: DeviceStatus }>(`/api/devices/${deviceId}/status`);

@@ -598,7 +598,6 @@ router.post('/:deviceId/location',
 
 // Device Pairing Endpoints
 
-// Generate pairing code for device setup
 router.post('/pairing/generate', 
   optionalAuth, 
   accountRateLimit(rateLimitPresets.pairing),
@@ -712,6 +711,64 @@ router.post('/pairing/generate',
       success: false,
       error: 'Failed to generate pairing code',
       details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Check pairing code status
+router.get('/pairing/status/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+
+    const result = await query(
+      `SELECT 
+        id, 
+        pairing_code, 
+        account_id, 
+        expires_at, 
+        used_at,
+        created_at
+       FROM device_pairing_requests 
+       WHERE pairing_code = $1`,
+      [code]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Pairing code not found'
+      });
+    }
+
+    const pairing = result.rows[0];
+    const now = new Date();
+    const expiresAt = new Date(pairing.expires_at);
+    const usedAt = pairing.used_at ? new Date(pairing.used_at) : null;
+
+    let status: 'valid' | 'expired' | 'used' = 'valid';
+
+    if (usedAt) {
+      status = 'used';
+    } else if (now > expiresAt) {
+      status = 'expired';
+    }
+
+    res.json({
+      success: true,
+      data: {
+        status,
+        pairingCode: pairing.pairing_code,
+        expiresAt: pairing.expires_at,
+        usedAt: pairing.used_at,
+        isValid: status === 'valid',
+        accountId: pairing.account_id
+      }
+    });
+  } catch (error) {
+    console.error('Error checking pairing status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
     });
   }
 });

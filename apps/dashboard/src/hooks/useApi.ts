@@ -321,7 +321,6 @@ export function useTestIntegration() {
   });
 }
 
-// Device Pairing hooks
 export function useGeneratePairingCode() {
   return useMutation({
     mutationFn: () => deviceService.generatePairingCode(),
@@ -337,6 +336,15 @@ export function useCompletePairing() {
       queryClient.invalidateQueries({ queryKey: ['devices'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
+  });
+}
+
+export function usePairingStatus(code: string | null) {
+  return useQuery({
+    queryKey: ['pairing', 'status', code],
+    queryFn: () => deviceService.getPairingStatus(code!),
+    enabled: !!code,
+    staleTime: 30 * 1000,
   });
 }
 

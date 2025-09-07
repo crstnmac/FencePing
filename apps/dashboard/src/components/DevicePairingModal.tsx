@@ -5,7 +5,8 @@ import Image from 'next/image';
 import { X, QrCode, Copy, RefreshCw, CheckCircle, AlertCircle, Smartphone } from 'lucide-react';
 import {
   useGeneratePairingCode,
-  useCompletePairing
+  useCompletePairing,
+  usePairingStatus
 } from '../hooks/useApi';
 import {
   type PairingCodeResponse,
@@ -34,6 +35,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
 
   const generatePairingCodeMutation = useGeneratePairingCode();
   const completePairingMutation = useCompletePairing();
+  const { data: statusData, isLoading: statusLoading } = usePairingStatus(pairingCode?.pairingCode || null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const isGeneratingRef = useRef(false);
 
@@ -101,6 +103,27 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
     }
   }, [pairingCode]);
 
+  const handleClose = () => {
+    setPairingCode(null);
+    setCopySuccess(false);
+    setCountdown(0);
+    setShowQR(false);
+    setQrCodeUrl('');
+    onClose();
+  };
+
+  const handleSuccess = () => {
+    onSuccess();
+    handleClose();
+  };
+
+  // Auto-complete pairing if status is 'used'
+  useEffect(() => {
+    if (statusData?.data?.status === 'used') {
+      handleSuccess();
+    }
+  }, [statusData, handleSuccess]);
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -115,20 +138,6 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  const handleClose = () => {
-    setPairingCode(null);
-    setCopySuccess(false);
-    setCountdown(0);
-    setShowQR(false);
-    setQrCodeUrl('');
-    onClose();
-  };
-
-  const handleSuccess = () => {
-    onSuccess();
-    handleClose();
   };
 
   if (!isOpen) return null;
