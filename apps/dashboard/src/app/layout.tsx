@@ -1,6 +1,6 @@
 import React from 'react'
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter } from "next/font/google"
 import { QueryProvider } from '../providers/QueryProvider'
 import { AuthProvider } from '../contexts/AuthContext'
 import { AppContent } from '../components/AppContent'
