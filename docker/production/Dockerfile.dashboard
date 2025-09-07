@@ -46,6 +46,9 @@ ENV CI=1
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TURBOPACK=1
 
+# Rebuild native dependencies for the container architecture
+RUN npm rebuild
+
 # Build dashboard and dependencies in single command
 RUN npm run build:dashboard
 
