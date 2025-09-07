@@ -118,7 +118,7 @@ services:
       dockerfile: docker/production/Dockerfile.api
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geofence}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       KAFKA_BROKERS: kafka:9092
       JWT_SECRET: ${JWT_SECRET}
@@ -212,7 +212,7 @@ services:
       dockerfile: docker/production/Dockerfile.geofence-engine
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geofence}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       KAFKA_BROKERS: kafka:9092
       LOG_LEVEL: info
@@ -234,7 +234,7 @@ services:
       dockerfile: docker/production/Dockerfile.automation-workers
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geofence}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       KAFKA_BROKERS: kafka:9092
       LOG_LEVEL: info

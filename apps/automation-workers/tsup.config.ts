@@ -10,5 +10,6 @@ export default defineConfig({
   minify: false,
   splitting: false,
   dts: false,
-  external: ['@geofence/shared', '@geofence/db']
+  external: ['pg', 'pg-native', 'sqlite3', 'mysql2', 'mysql', 'oracle', 'strong-oracle', 'oracledb', 'mssql', 'better-sqlite3'],
+  noExternal: ['@geofence/shared', '@geofence/db']
 });
