@@ -104,10 +104,11 @@ services:
       - dokploy-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "/opt/emqx/bin/emqx", "ping"]
-      interval: 30s
+      test: ["CMD-SHELL", "emqx ctl status || exit 1"]
+      interval: 15s
       timeout: 10s
       retries: 5
+      start_period: 30s
 
   # API Server
   api:
