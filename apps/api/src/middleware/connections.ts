@@ -68,8 +68,8 @@ export const trackConnectionUsage = (req: Request, res: Response, next: NextFunc
 // Admin endpoint to check connection pool status
 export const getConnectionPoolStatus = async (req: Request, res: Response) => {
   try {
-    const { Pool } = await import('pg');
-    const pool = require('../db/client.js').getPool();
+    const { getPool } = await import('@geofence/db');
+    const pool = getPool();
 
     const stats = {
       totalConnections: pool.totalCount,
