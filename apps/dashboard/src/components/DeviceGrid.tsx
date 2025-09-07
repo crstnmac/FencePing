@@ -34,9 +34,9 @@ export function DeviceGrid({
 }: DeviceGridProps) {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {[...Array(8)].map((_, i) => (
-          <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
+          <div key={i} className="bg-white rounded-lg shadow p-4 animate-pulse">
             <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
             <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
             <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
@@ -50,7 +50,7 @@ export function DeviceGrid({
   if (devices.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow">
-        <div className="p-12 text-center">
+        <div className="p-8 text-center">
           <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
             <MapPin className="h-8 w-8 text-gray-400" />
           </div>
@@ -62,21 +62,21 @@ export function DeviceGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {devices.map((device) => (
         <div key={device.id} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-200">
-          <div className="p-6">
+          <div className="p-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
-                <div className={`w-3 h-3 rounded-full mr-2 ${
+                <div className={`w-3 h-3 rounded-full mr-3 ${
                   device.status === 'online' ? 'bg-green-500' : 'bg-gray-300'
                 }`}></div>
                 <h3 className="text-lg font-semibold text-gray-900 truncate">
                   {device.name}
                 </h3>
               </div>
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => onSendCommand(device)}
                   className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
@@ -111,14 +111,14 @@ export function DeviceGrid({
             </div>
 
             {/* Device Type */}
-            <div className="mb-3">
+            <div className="mb-4">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                 {device.device_type || 'Unknown'}
               </span>
             </div>
 
             {/* Status */}
-            <div className="flex items-center mb-3">
+            <div className="flex items-center mb-4">
               {device.status === 'online' ? (
                 <Wifi className="h-4 w-4 text-green-500 mr-2" />
               ) : (
@@ -132,7 +132,7 @@ export function DeviceGrid({
             </div>
 
             {/* Last Seen */}
-            <div className="flex items-center mb-3">
+            <div className="flex items-center mb-4">
               <Clock className="h-4 w-4 text-gray-400 mr-2" />
               <span className="text-sm text-gray-600">
                 {formatLastSeen(device.last_seen)}

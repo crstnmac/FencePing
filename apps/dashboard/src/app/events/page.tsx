@@ -170,10 +170,10 @@ export default function EventsPage() {
         subtitle="View and analyze location events and automation history"
       />
       
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4">
         {/* Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
@@ -181,14 +181,14 @@ export default function EventsPage() {
                 placeholder="Search events..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-3 py-2 border rounded-lg transition-colors ${
+                className={`flex items-center gap-2 px-2 py-1.5 border rounded-lg transition-colors ${
                   showFilters ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:bg-gray-50'
                 }`}
               >
@@ -200,7 +200,7 @@ export default function EventsPage() {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange((e.target as HTMLSelectElement).value as any)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="today">Today</option>
                 <option value="week">Last 7 days</option>
@@ -214,14 +214,14 @@ export default function EventsPage() {
             <button
               onClick={() => refetch()}
               disabled={isLoading}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-800 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-800 px-2 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
             <button 
               onClick={exportEvents}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
             >
               <Download className="h-4 w-4" />
               Export CSV

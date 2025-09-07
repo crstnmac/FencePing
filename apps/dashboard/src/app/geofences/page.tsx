@@ -33,14 +33,12 @@ export default function GeofencesPage() {
   const updateGeofenceMutation = useUpdateGeofence();
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'polygon' | 'circle'>('all');
+  
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedGeofence, setSelectedGeofence] = useState<any>(null);
-  const [showMap, setShowMap] = useState(true);
   const [showAutomationRuleModal, setShowAutomationRuleModal] = useState(false);
   const [selectedGeofenceForRule, setSelectedGeofenceForRule] = useState<string | null>(null);
   const [expandedGeofence, setExpandedGeofence] = useState<string | null>(null);
-  const [showDevices, setShowDevices] = useState(true);
   const [pendingGeofence, setPendingGeofence] = useState<any>(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
   
@@ -52,12 +50,11 @@ export default function GeofencesPage() {
   const deleteAutomationRuleMutation = useDeleteAutomationRule();
   const toggleAutomationRuleMutation = useToggleAutomationRule();
 
-  // Filter geofences based on search and type
+  // Filter geofences based on search
   const filteredGeofences = geofences.filter(geofence => {
     const matchesSearch = geofence.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (geofence.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all';
-    return matchesSearch && matchesType;
+    return matchesSearch;
   });
 
   const handleGeofenceCreate = (geofence: { type: "polygon" | "circle" | "point"; coordinates: number[][]; center?: [number, number] | undefined; radius?: number | undefined; }) => {
@@ -201,14 +198,14 @@ export default function GeofencesPage() {
       
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel */}
-        <div className="w-1/3 flex flex-col border-r border-gray-200 bg-white">
+        <div className="w-64 flex flex-col border-r border-gray-200 bg-white">
           {/* Controls */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-medium text-gray-900">Geofences ({filteredGeofences.length})</h2>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create
@@ -217,50 +214,17 @@ export default function GeofencesPage() {
 
             {/* Search */}
             <div className="relative mb-4">
-              <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
+              <Search className="h-4 w-4 absolute left-3 top-1.5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search geofences..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            {/* Filters */}
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value as any)}
-                className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Types</option>
-                <option value="polygon">Polygons</option>
-                <option value="circle">Circles</option>
-              </select>
-            </div>
-
-            {/* Toggle Controls */}
-            <div className="mt-4 space-y-2">
-              <button
-                onClick={() => setShowMap(!showMap)}
-                className="w-full text-sm text-blue-600 hover:text-blue-700 flex items-center justify-center"
-              >
-                <MapPin className="h-4 w-4 mr-1" />
-                {showMap ? 'Hide Map' : 'Show Map'}
-              </button>
-              
-              {showMap && (
-                <button
-                  onClick={() => setShowDevices(!showDevices)}
-                  className="w-full text-sm text-gray-600 hover:text-gray-700 flex items-center justify-center"
-                >
-                  <Users className="h-4 w-4 mr-1" />
-                  {showDevices ? 'Hide Devices' : 'Show Devices'}
-                </button>
-              )}
-            </div>
+            
           </div>
 
           {/* Loading State */}
@@ -299,12 +263,12 @@ export default function GeofencesPage() {
           {/* Geofences List */}
           {!isLoading && filteredGeofences.length > 0 && (
             <div className="flex-1 overflow-y-auto">
-              <div className="space-y-2 p-4">
+              <div className="space-y-1 p-3">
                 {filteredGeofences.map((geofence) => (
                   <div key={geofence.id} className="border border-gray-200 rounded-lg overflow-hidden">
                     {/* Geofence Header */}
                     <div
-                      className="p-4 hover:bg-gray-50 cursor-pointer"
+                      className="p-3 hover:bg-gray-50 cursor-pointer"
                       onClick={() => setSelectedGeofence(geofence)}
                     >
                       <div className="flex items-start justify-between">
@@ -318,7 +282,7 @@ export default function GeofencesPage() {
                             </span>
                           </div>
                           {geofence.description && (
-                            <p className="text-sm text-gray-600 mb-2">{geofence.description}</p>
+                            <p className="text-xs text-gray-600 mb-2">{geofence.description}</p>
                           )}
                           <div className="flex items-center space-x-4 text-xs text-gray-500">
                             <span className="flex items-center">
@@ -333,7 +297,7 @@ export default function GeofencesPage() {
                               e.stopPropagation();
                               handleCreateAutomationRule(geofence.id);
                             }}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
+                            className="p-1 text-gray-400 hover:text-blue-600 rounded"
                             title="Create automation rule"
                           >
                             <Zap className="h-4 w-4" />
@@ -343,7 +307,7 @@ export default function GeofencesPage() {
                               e.stopPropagation();
                               handleToggleGeofenceExpansion(geofence.id);
                             }}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
+                            className="p-1 text-gray-400 hover:text-blue-600 rounded"
                             title="View automation rules"
                           >
                             <Settings className="h-4 w-4" />
@@ -359,7 +323,7 @@ export default function GeofencesPage() {
                               setPendingGeofence(null);
                               setShowCreateModal(true);
                             }}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
+                            className="p-1 text-gray-400 hover:text-blue-600 rounded"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
@@ -369,7 +333,7 @@ export default function GeofencesPage() {
                               handleGeofenceDeleteFromList(geofence.id);
                             }}
                             disabled={deleteGeofenceMutation.isPending}
-                            className="p-1.5 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
+                            className="p-1 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -379,9 +343,9 @@ export default function GeofencesPage() {
 
                     {/* Automation Rules Section */}
                     {expandedGeofence === geofence.id && (
-                      <div className="border-t border-gray-200 bg-gray-50 p-4">
+                      <div className="border-t border-gray-200 bg-gray-50 p-3">
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                          <h4 className="text-xs font-medium text-gray-900 flex items-center">
                             <Zap className="h-4 w-4 mr-1" />
                             Automation Rules
                           </h4>
@@ -395,16 +359,16 @@ export default function GeofencesPage() {
                         </div>
 
                         {automationRules.length === 0 ? (
-                          <p className="text-sm text-gray-500 text-center py-2">
+                          <p className="text-xs text-gray-500 text-center py-2">
                             No automation rules configured for this geofence
                           </p>
                         ) : (
-                          <div className="space-y-2">
+                          <div className="space-y-1">
                             {automationRules.map((rule) => (
                               <div key={rule.id} className="flex items-center justify-between p-2 bg-white rounded border">
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-sm font-medium text-gray-900">{rule.name}</span>
+                                    <span className="text-xs font-medium text-gray-900">{rule.name}</span>
                                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                                       rule.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                                     }`}>
@@ -446,74 +410,71 @@ export default function GeofencesPage() {
         </div>
 
         {/* Right Panel - Map */}
-        {showMap && (
-          <div className="flex-1 relative">
-            <Map
-              geofences={(() => {
-                const mapGeofences = filteredGeofences.map(geofence => {
-                  // Ensure consistent data structure for Map component
-                  const mapGeofence = {
-                    id: String(geofence.id), // Ensure ID is always string
-                    name: geofence.name || 'Unnamed Geofence',
-                    geometry: geofence.geometry,
-                    type: (geofence.geofence_type || 'polygon') as 'polygon' | 'circle' | 'point'
-                  };
-                  
-                  // Validate geometry exists and has proper structure
-                  if (!mapGeofence.geometry || !mapGeofence.geometry.coordinates) {
-                    console.warn('🗺️ Invalid geofence geometry:', geofence.name, geofence);
-                    return null;
-                  }
-                  
-                  console.log('🗺️ Passing geofence to Map:', {
-                    id: mapGeofence.id,
-                    name: mapGeofence.name,
-                    type: mapGeofence.type,
-                    geometryType: mapGeofence.geometry?.type,
-                    hasCoordinates: !!mapGeofence.geometry?.coordinates
-                  });
-                  
-                  return mapGeofence;
-                }).filter(g => g !== null) as Array<{
-                  id: string;
-                  name: string; 
-                  geometry: any;
-                  type: 'polygon' | 'circle' | 'point';
-                }>;
+        <div className="flex-1 relative">
+          <Map
+            geofences={(() => {
+              const mapGeofences = filteredGeofences.map(geofence => {
+                // Ensure consistent data structure for Map component
+                const mapGeofence = {
+                  id: String(geofence.id), // Ensure ID is always string
+                  name: geofence.name || 'Unnamed Geofence',
+                  geometry: geofence.geometry,
+                  type: (geofence.geofence_type || 'polygon') as 'polygon' | 'circle' | 'point'
+                };
                 
-                console.log('🗺️ Total geofences being passed to Map component:', mapGeofences.length);
+                // Validate geometry exists and has proper structure
+                if (!mapGeofence.geometry || !mapGeofence.geometry.coordinates) {
+                  console.warn('🗺️ Invalid geofence geometry:', geofence.name, geofence);
+                  return null;
+                }
                 
-                return mapGeofences;
-              })()}
-              devices={showDevices ? devices
-                .filter(device => device.longitude && device.latitude) // Only show devices with known locations
-                .map(device => ({
-                  id: device.id,
-                  name: device.name,
-                  location: [device.longitude!, device.latitude!] as [number, number],
-                  lastSeen: device.last_seen || new Date().toISOString(),
-                  isActive: device.status === 'online'
-                })) : []
-              }
-              onGeofenceCreate={handleGeofenceCreate}
-              onGeofenceUpdate={handleGeofenceUpdate}
-              onGeofenceDelete={handleGeofenceDelete}
-            />
-          </div>
-        )}
+                console.log('🗺️ Passing geofence to Map:', {
+                  id: mapGeofence.id,
+                  name: mapGeofence.name,
+                  type: mapGeofence.type,
+                  geometryType: mapGeofence.geometry?.type,
+                  hasCoordinates: !!mapGeofence.geometry?.coordinates
+                });
+                
+                return mapGeofence;
+              }).filter(g => g !== null) as Array<{
+                id: string;
+                name: string; 
+                geometry: any;
+                type: 'polygon' | 'circle' | 'point';
+              }>;
+              
+              console.log('🗺️ Total geofences being passed to Map component:', mapGeofences.length);
+              
+              return mapGeofences;
+            })()}
+            devices={devices
+              .filter(device => device.longitude && device.latitude) // Only show devices with known locations
+              .map(device => ({
+                id: device.id,
+                name: device.name,
+                location: [device.longitude!, device.latitude!] as [number, number],
+                lastSeen: device.last_seen || new Date().toISOString(),
+                isActive: device.status === 'online'
+              }))}
+            onGeofenceCreate={handleGeofenceCreate}
+            onGeofenceUpdate={handleGeofenceUpdate}
+            onGeofenceDelete={handleGeofenceDelete}
+          />
+        </div>
       </div>
 
       {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg p-4 w-full max-w-sm">
             <h3 className="text-lg font-medium mb-4">
               {selectedGeofence ? 'Edit Geofence' : 'Create New Geofence'}
             </h3>
             
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
                   Geofence Name
                 </label>
                 <input
@@ -521,12 +482,12 @@ export default function GeofencesPage() {
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Enter geofence name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
                   Description
                 </label>
                 <textarea
@@ -534,11 +495,11 @@ export default function GeofencesPage() {
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Enter description"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              <p className="text-sm text-gray-500">
+              <p className="text-xs text-gray-500">
                 Use the map to draw the geofence boundary, then fill in the details here.
               </p>
             </div>
@@ -551,14 +512,14 @@ export default function GeofencesPage() {
                   setPendingGeofence(null);
                   setFormData({ name: '', description: '' });
                 }}
-                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-3 py-1.5 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveGeofence}
                 disabled={createGeofenceMutation.isPending || updateGeofenceMutation.isPending || !formData.name.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {createGeofenceMutation.isPending || updateGeofenceMutation.isPending ? 'Saving...' : (selectedGeofence ? 'Update' : 'Create')} Geofence
               </button>

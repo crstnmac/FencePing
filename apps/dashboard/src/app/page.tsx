@@ -80,75 +80,75 @@ export default function HomePage() {
         subtitle="Monitor your geofence automations and device activity"
       />
       
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-8">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <Smartphone className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Devices</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xs font-medium text-gray-600">Total Devices</p>
+                <p className="text-xl font-bold text-gray-900">
                   {statsLoading ? '...' : currentStats.totalDevices}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <Activity className="h-8 w-8 text-green-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Devices</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xs font-medium text-gray-600">Active Devices</p>
+                <p className="text-xl font-bold text-gray-900">
                   {statsLoading ? '...' : currentStats.activeDevices}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <MapPin className="h-8 w-8 text-purple-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Geofences</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xs font-medium text-gray-600">Geofences</p>
+                <p className="text-xl font-bold text-gray-900">
                   {statsLoading ? '...' : currentStats.geofences}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <Zap className="h-8 w-8 text-yellow-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Today&apos;s Events</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xs font-medium text-gray-600">Today's Events</p>
+                <p className="text-xl font-bold text-gray-900">
                   {statsLoading ? '...' : currentStats.todayEvents}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <TrendingUp className="h-8 w-8 text-emerald-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xs font-medium text-gray-600">Success Rate</p>
+                <p className="text-xl font-bold text-gray-900">
                   {statsLoading ? '...' : `${currentStats.automationSuccess}%`}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <AlertCircle className="h-8 w-8 text-red-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Failed Webhooks</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xs font-medium text-gray-600">Failed Webhooks</p>
+                <p className="text-xl font-bold text-gray-900">
                   {statsLoading ? '...' : currentStats.failedWebhooks}
                 </p>
               </div>
@@ -159,12 +159,12 @@ export default function HomePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Events */}
           <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-4 py-2 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">Recent Events</h3>
             </div>
-            <div className="p-6">
+            <div className="p-4">
               {eventsLoading ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {[...Array(4)].map((_, i) => (
                     <div key={i} className="flex items-center space-x-3">
                       <div className="w-2 h-2 rounded-full bg-gray-300 animate-pulse" />
@@ -178,10 +178,10 @@ export default function HomePage() {
               ) : recentEvents.length === 0 ? (
                 <div className="text-center py-8">
                   <Activity className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-                  <p className="text-sm text-gray-500">No recent events</p>
+                  <p className="text-xs text-gray-500">No recent events</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {recentEvents.map((event) => (
                     <div key={event.id} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
@@ -190,7 +190,7 @@ export default function HomePage() {
                           event.event_type === 'geofence_exit' ? 'bg-red-500' : 'bg-yellow-500'
                         }`} />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-xs font-medium text-gray-900">
                             {event.device?.name || 'Unknown Device'} {getEventDisplayName(event.event_type)} {event.geofence?.name || 'Unknown Geofence'}
                           </p>
                           <p className="text-xs text-gray-500">
@@ -207,37 +207,37 @@ export default function HomePage() {
 
           {/* Quick Actions */}
           <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-4 py-2 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
             </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <button className="w-full text-left p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+            <div className="p-4">
+              <div className="space-y-3">
+                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center space-x-3">
                     <MapPin className="h-5 w-5 text-blue-600" />
                     <div>
                       <p className="font-medium text-gray-900">Create Geofence</p>
-                      <p className="text-sm text-gray-500">Draw a new geofenced area on the map</p>
+                      <p className="text-xs text-gray-500">Draw a new geofenced area on the map</p>
                     </div>
                   </div>
                 </button>
 
-                <button className="w-full text-left p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center space-x-3">
                     <Smartphone className="h-5 w-5 text-green-600" />
                     <div>
                       <p className="font-medium text-gray-900">Add Device</p>
-                      <p className="text-sm text-gray-500">Register a new tracking device</p>
+                      <p className="text-xs text-gray-500">Register a new tracking device</p>
                     </div>
                   </div>
                 </button>
 
-                <button className="w-full text-left p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center space-x-3">
                     <Zap className="h-5 w-5 text-purple-600" />
                     <div>
                       <p className="font-medium text-gray-900">Setup Automation</p>
-                      <p className="text-sm text-gray-500">Create a new webhook automation</p>
+                      <p className="text-xs text-gray-500">Create a new webhook automation</p>
                     </div>
                   </div>
                 </button>

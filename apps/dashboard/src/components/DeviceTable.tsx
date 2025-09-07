@@ -54,7 +54,7 @@ export function DeviceTable({
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow">
-        <div className="p-6 text-center">
+        <div className="p-4 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-2 text-gray-500">Loading devices...</p>
         </div>
@@ -65,7 +65,7 @@ export function DeviceTable({
   if (devices.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow">
-        <div className="p-12 text-center">
+        <div className="p-8 text-center">
           <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
             <MapPin className="h-8 w-8 text-gray-400" />
           </div>
@@ -81,7 +81,7 @@ export function DeviceTable({
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <input
                 type="checkbox"
                 checked={selectedDevices.length === devices.length}
@@ -89,25 +89,25 @@ export function DeviceTable({
                 className="h-4 w-4 text-blue-600 rounded border-gray-300"
               />
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Device
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Last Seen
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Location
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Token
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Group
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -115,7 +115,7 @@ export function DeviceTable({
         <tbody className="bg-white divide-y divide-gray-200">
           {devices.map((device) => (
             <tr key={device.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-4 py-3 whitespace-nowrap">
                 <input
                   type="checkbox"
                   checked={selectedDevices.includes(device.id)}
@@ -123,13 +123,13 @@ export function DeviceTable({
                   className="h-4 w-4 text-blue-600 rounded border-gray-300"
                 />
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-4 py-3 whitespace-nowrap">
                 <div>
-                  <div className="text-sm font-medium text-gray-900">{device.name}</div>
-                  <div className="text-sm text-gray-500">{device.device_type}</div>
+                  <div className="text-xs font-medium text-gray-900">{device.name}</div>
+                  <div className="text-xs text-gray-500">{device.device_type}</div>
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-4 py-3 whitespace-nowrap">
                 <div className="flex items-center">
                   {device.status === 'online' ? (
                     <Wifi className="h-4 w-4 text-green-500 mr-2" />
@@ -145,13 +145,13 @@ export function DeviceTable({
                   </span>
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900">
                 <div className="flex items-center">
                   <Clock className="h-4 w-4 text-gray-400 mr-1" />
                   {formatLastSeen(device.last_seen)}
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900">
                 {device.latitude && device.longitude ? (
                   <div className="flex items-center">
                     <MapPin className="h-4 w-4 text-gray-400 mr-1" />
@@ -161,8 +161,8 @@ export function DeviceTable({
                   <span className="text-gray-400">No location</span>
                 )}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center space-x-2">
+              <td className="px-4 py-3 whitespace-nowrap">
+                <div className="flex items-center gap-1">
                   {device.device_token ? (
                     <>
                       <button
@@ -172,7 +172,7 @@ export function DeviceTable({
                       >
                         {showTokens[device.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
-                      <span className="text-sm text-gray-500 font-mono">
+                      <span className="text-xs text-gray-500 font-mono">
                         {showTokens[device.id] ? device.device_token : '••••••••'}
                       </span>
                       <button
@@ -184,16 +184,16 @@ export function DeviceTable({
                       </button>
                     </>
                   ) : (
-                    <span className="text-gray-400 text-sm">No token</span>
+                    <span className="text-gray-400 text-xs">No token</span>
                   )}
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-4 py-3 whitespace-nowrap">
                 {onAssignToGroup ? (
                   <select
                     value={device.group_id || ''}
                     onChange={(e) => onAssignToGroup(device.id, e.target.value)}
-                    className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-xs border border-gray-300 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">No group</option>
                     {groups.map(group => (
@@ -203,7 +203,7 @@ export function DeviceTable({
                     ))}
                   </select>
                 ) : (
-                  <span className="text-sm text-gray-500">
+                  <span className="text-xs text-gray-500">
                     {device.group_id ? 
                       groups.find(g => g.id === device.group_id)?.name || 'Unknown Group' 
                       : 'No group'
@@ -211,8 +211,8 @@ export function DeviceTable({
                   </span>
                 )}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <div className="flex items-center justify-end space-x-2">
+              <td className="px-4 py-2 whitespace-nowrap text-right text-xs font-medium">
+                <div className="flex items-center justify-end space-x-1">
                   <button
                     onClick={() => onSendCommand(device)}
                     className="text-blue-600 hover:text-blue-900"

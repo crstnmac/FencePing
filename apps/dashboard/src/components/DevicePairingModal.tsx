@@ -144,7 +144,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div className="bg-white rounded-lg p-4 w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-medium">Device Pairing</h3>
           <button
@@ -155,7 +155,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
           </button>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Step 1: Pairing Code */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2 text-sm text-gray-600">

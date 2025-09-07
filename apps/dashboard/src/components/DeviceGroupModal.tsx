@@ -83,7 +83,7 @@ export function DeviceGroupModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center">
             <Users className="h-6 w-6 text-blue-600 mr-3" />
             <h2 className="text-lg font-semibold text-gray-900">
@@ -98,7 +98,7 @@ export function DeviceGroupModal({
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>

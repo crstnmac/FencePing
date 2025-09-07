@@ -334,8 +334,8 @@ export default function EnhancedDevicesPage() {
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
             {/* Search */}
             <div className="flex-1 max-w-md">
               <div className="relative">
@@ -345,17 +345,17 @@ export default function EnhancedDevicesPage() {
                   placeholder="Search devices..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="pl-10 pr-4 py-1.5 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={filters.status || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any || undefined }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
@@ -367,79 +367,81 @@ export default function EnhancedDevicesPage() {
               <select
                 value={filters.deviceType || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, deviceType: e.target.value || undefined }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
               >
                 <option value="">All Types</option>
                 <option value="mobile">Mobile</option>
                 <option value="vehicle">Vehicle</option>
                 <option value="asset">Asset</option>
                 <option value="pet">Pet</option>
+                <option value="person">Person</option>
+                <option value="other">Other</option>
               </select>
 
               <select
                 value={filters.groupId || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, groupId: e.target.value || undefined }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
               >
                 <option value="">All Groups</option>
-                {groups.map((group: DeviceGroup) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name} ({group.deviceCount})
-                  </option>
+                {groups.map(group => (
+                  <option key={group.id} value={group.id}>{group.name}</option>
                 ))}
               </select>
-            </div>
-            
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3">
-              {selectedDevices.length > 0 && (
-                <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
-                  <span className="text-sm font-medium text-blue-700">
-                    {selectedDevices.length} selected
-                  </span>
-                  <button
-                    onClick={handleBulkDelete}
-                    className="text-red-600 hover:text-red-700 p-1"
-                    title="Delete selected"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setShowAssignGroupModal(true)}
-                    className="text-blue-600 hover:text-blue-700 p-1"
-                    title="Assign to group"
-                  >
-                    <Users className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+
+              <select
+                value={filters.lastSeen || ''}
+                onChange={(e) => setFilters(prev => ({ ...prev, lastSeen: e.target.value as any || undefined }))}
+                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+              >
+                <option value="">All Time</option>
+                <option value="hour">Last Hour</option>
+                <option value="day">Last Day</option>
+                <option value="week">Last Week</option>
+                <option value="month">Last Month</option>
+              </select>
 
               <button
-                onClick={() => setShowGroupModal(true)}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
+                className="px-2 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs flex items-center"
               >
-                <Users className="h-4 w-4 mr-2" />
-                New Group
+                <Layers className="h-3 w-3 mr-1" />
+                {viewMode === 'table' ? 'Grid' : 'Table'}
               </button>
+            </div>
+          </div>
 
-              <div className="flex items-center border border-gray-300 rounded-lg p-1">
+          {/* Bulk Actions */}
+          {selectedDevices.length > 0 && (
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+              <span className="text-sm text-blue-700">
+                {selectedDevices.length} device{selectedDevices.length > 1 ? 's' : ''} selected
+              </span>
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setViewMode('table')}
-                  className={`p-2 rounded ${viewMode === 'table' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
-                  title="Table view"
+                  onClick={() => setShowAssignGroupModal(true)}
+                  className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
                 >
-                  <FileText className="h-4 w-4" />
+                  <Users className="h-3 w-3 mr-1 inline" />
+                  Assign to Group
                 </button>
                 <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
-                  title="Grid view"
+                  onClick={handleBulkDelete}
+                  className="px-3 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
                 >
-                  <Layers className="h-4 w-4" />
+                  <Trash2 className="h-3 w-3 mr-1 inline" />
+                  Delete Selected
+                </button>
+                <button
+                  onClick={() => setShowGroupModal(true)}
+                  className="px-3 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200"
+                >
+                  <Plus className="h-3 w-3 mr-1 inline" />
+                  Create Group
                 </button>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Device List */}

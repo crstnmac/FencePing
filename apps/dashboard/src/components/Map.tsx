@@ -1187,7 +1187,7 @@ export function Map({
       <div ref={mapContainer} className="h-full rounded-lg overflow-hidden" />
 
       {/* Search Bar */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-80 z-10">
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-64 z-10">
         <div className="relative search-container">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -1217,7 +1217,7 @@ export function Map({
                   setSelectedResultIndex(-1);
                 }
               }}
-              className="w-full pl-10 pr-10 py-2 bg-white border border-gray-300 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-10 py-1.5 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
             {searchQuery && (
               <button
@@ -1233,37 +1233,37 @@ export function Map({
                 }}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3 w-3" />
               </button>
             )}
             {isSearching && (
               <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent"></div>
               </div>
             )}
           </div>
 
           {/* Enhanced Search Results */}
           {showResults && searchResults.length > 0 && (
-            <div className="absolute top-full mt-2 w-full bg-white/95 backdrop-blur-md border border-gray-200 rounded-xl shadow-2xl max-h-80 overflow-y-auto z-30 animate-in slide-in-from-top-2 duration-300">
+            <div className="absolute top-full mt-1 w-full bg-white/95 backdrop-blur-md border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-30 animate-in slide-in-from-top-2 duration-300">
               {searchResults.map((result, index) => (
                 <button
                   key={index}
                   onClick={() => flyToLocation(result.center, result.place_name)}
-                  className={`w-full px-6 py-4 text-left border-b border-gray-100 last:border-b-0 focus:outline-none transition-all duration-200 first:rounded-t-xl last:rounded-b-xl group ${index === selectedResultIndex
-                      ? 'bg-blue-50 border-blue-200 shadow-md'
-                      : 'hover:bg-blue-50 hover:shadow-md'
+                  className={`w-full px-4 py-2 text-left border-b border-gray-100 last:border-b-0 focus:outline-none transition-all duration-200 first:rounded-t-lg last:rounded-b-lg group ${index === selectedResultIndex
+                      ? 'bg-blue-50 border-blue-200 shadow-sm'
+                      : 'hover:bg-blue-50 hover:shadow-sm'
                     }`}
                 >
-                  <div className="flex items-start space-x-4">
-                    <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                      <MapPin className="h-4 w-4 text-blue-600" />
+                  <div className="flex items-start space-x-2">
+                    <div className="p-1 bg-blue-100 rounded group-hover:bg-blue-200 transition-colors">
+                      <MapPin className="h-3 w-3 text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">{result.place_name.split(',')[0]}</p>
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">{result.place_name}</p>
-                      <div className="flex items-center mt-2 text-xs text-gray-500">
-                        <span className="bg-gray-100 px-2 py-1 rounded-full">{result.place_type?.[0] || 'Location'}</span>
+                      <p className="font-semibold text-gray-900 truncate text-xs">{result.place_name.split(',')[0]}</p>
+                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{result.place_name}</p>
+                      <div className="flex items-center mt-1 text-xs text-gray-500">
+                        <span className="bg-gray-100 px-1.5 py-0.5 rounded">{result.place_type?.[0] || 'Location'}</span>
                       </div>
                     </div>
                   </div>
@@ -1275,23 +1275,23 @@ export function Map({
       </div>
 
       {/* Terra Draw Status */}
-      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-md p-2">
-        <div className="text-xs mb-2 flex items-center gap-2">
+      <div className="absolute top-4 left-4 bg-white rounded-md shadow-sm p-1.5">
+        <div className="text-xs mb-1 flex items-center gap-1">
           <div className={`w-2 h-2 rounded-full ${terraDrawStatus === 'ready' ? 'bg-green-500' :
               terraDrawStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
             }`}></div>
-          <span className="font-medium">
+          <span className="font-medium text-xs">
             {terraDrawStatus === 'ready' ? 'Terra Draw Ready' :
               terraDrawStatus === 'error' ? 'Terra Draw Error' : 'Initializing...'}
           </span>
         </div>
 
         {/* Drawing Controls */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           <button
             onClick={() => setDrawingMode('select')}
             disabled={terraDrawStatus !== 'ready'}
-            className={`p-2 rounded text-sm font-medium transition-colors ${currentMode === 'select'
+            className={`p-1.5 rounded text-xs font-medium transition-colors ${currentMode === 'select'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1302,7 +1302,7 @@ export function Map({
           <button
             onClick={() => setDrawingMode('polygon')}
             disabled={terraDrawStatus !== 'ready'}
-            className={`p-2 rounded text-sm font-medium transition-colors ${currentMode === 'polygon'
+            className={`p-1.5 rounded text-xs font-medium transition-colors ${currentMode === 'polygon'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1313,7 +1313,7 @@ export function Map({
           <button
             onClick={() => setDrawingMode('circle')}
             disabled={terraDrawStatus !== 'ready'}
-            className={`p-2 rounded text-sm font-medium transition-colors ${currentMode === 'circle'
+            className={`p-1.5 rounded text-xs font-medium transition-colors ${currentMode === 'circle'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1324,7 +1324,7 @@ export function Map({
           <button
             onClick={() => setDrawingMode('point')}
             disabled={terraDrawStatus !== 'ready'}
-            className={`p-2 rounded text-sm font-medium transition-colors ${currentMode === 'point'
+            className={`p-1.5 rounded text-xs font-medium transition-colors ${currentMode === 'point'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1336,7 +1336,7 @@ export function Map({
             <button
               onClick={clearDrawing}
               disabled={terraDrawStatus !== 'ready'}
-              className={`p-2 w-full rounded text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`p-1.5 w-full rounded text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
               title="Clear all drawings"
             >
               🗑️ Clear
@@ -1346,138 +1346,162 @@ export function Map({
       </div>
 
       {/* Real-time Statistics Panel */}
-      <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 text-sm min-w-48">
-        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-          <div className="w-4 h-4 rounded bg-gradient-to-r from-green-500 to-blue-500"></div>
-          <span className="font-semibold text-gray-900">Live Status</span>
-        </div>
+      <div className="group relative absolute bottom-4 left-4 z-10">
+        <button
+          className="bg-white p-1 rounded shadow hover:bg-gray-100"
+          title="Live Status"
+        >
+          ●
+        </button>
+        <div className="absolute bottom-full left-0 mb-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out transform -translate-y-2 group-hover:translate-y-0 bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-gray-200 p-2 text-xs min-w-32 z-10">
+          <div className="flex items-center gap-1 mb-1 pb-1 border-b border-gray-100">
+            <div className="w-3 h-3 rounded bg-gradient-to-r from-green-500 to-blue-500"></div>
+            <span className="font-semibold text-gray-900">Live Status</span>
+          </div>
 
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Active Devices:</span>
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-semibold text-green-600">
-                {devices?.filter(d => d.isActive).length || 0}
-              </span>
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Active:</span>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="font-semibold text-green-600">
+                  {devices?.filter(d => d.isActive).length || 0}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Total Devices:</span>
+              <span className="font-semibold text-blue-600">{devices?.length || 0}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Geofences:</span>
+              <span className="font-semibold text-purple-600">{geofences?.length || 0}</span>
             </div>
           </div>
 
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Total Devices:</span>
-            <span className="font-semibold text-blue-600">{devices?.length || 0}</span>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Geofences:</span>
-            <span className="font-semibold text-purple-600">{geofences?.length || 0}</span>
-          </div>
-        </div>
-
-        <div className="mt-3 pt-2 border-t border-gray-100">
-          <div className="text-xs text-gray-500 flex items-center gap-1">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-            <span>Auto-refresh: 30s</span>
+          <div className="mt-1 pt-1 border-t border-gray-100">
+            <div className="text-xs text-gray-500 flex items-center gap-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span>Auto-refresh: 30s</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Enhanced Map Legend */}
-      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 text-sm max-w-xs">
-        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-          <div className="w-4 h-4 rounded bg-gradient-to-r from-blue-500 to-purple-600"></div>
-          <span className="font-semibold text-gray-900">Map Legend</span>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <div className="font-medium text-gray-700 mb-1">Devices</div>
-            <div className="space-y-1 ml-2">
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <div className="absolute inset-0 w-3 h-3 rounded-full bg-green-500 animate-pulse opacity-75"></div>
+      <div className="group relative absolute top-4 right-4 z-10">
+        <button
+          className="bg-white p-1 rounded shadow hover:bg-gray-100"
+          title="Map Legend"
+        >
+          i
+        </button>
+        <div className="absolute top-full left-0 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out transform translate-y-2 group-hover:translate-y-0 bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-gray-200 p-2 text-xs max-w-sm z-10">
+          <div className="flex items-center gap-1 mb-1 pb-1 border-b border-gray-100">
+            <div className="w-3 h-3 rounded bg-gradient-to-r from-blue-500 to-purple-600"></div>
+            <span className="font-semibold text-gray-900">Map Legend</span>
+          </div>
+          <div className="space-y-1">
+            <div>
+              <div className="font-medium text-gray-700 mb-1">Devices</div>
+              <div className="space-y-1 ml-1">
+                <div className="flex items-center gap-1">
+                  <div className="relative">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500 animate-pulse opacity-75"></div>
+                  </div>
+                  <span className="text-xs">Online</span>
                 </div>
-                <span className="text-xs">Online Device</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                  <span className="text-xs">Offline</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                <span className="text-xs">Offline Device</span>
+            </div>
+            <div>
+              <div className="font-medium text-gray-700 mb-1">Geofences</div>
+              <div className="space-y-1 ml-1">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-1 bg-blue-500 rounded-full shadow-sm"></div>
+                  <span className="text-xs">Polygon</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-1 bg-green-500 rounded-full shadow-sm"></div>
+                  <span className="text-xs">Circle</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-1 bg-purple-500 rounded-full shadow-sm"></div>
+                  <span className="text-xs">Highlight</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                  <span className="text-xs">Point</span>
+                </div>
               </div>
             </div>
           </div>
-          <div>
-            <div className="font-medium text-gray-700 mb-1">Geofences</div>
-            <div className="space-y-1 ml-2">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-1 bg-blue-500 rounded-full shadow-sm"></div>
-                <span className="text-xs">Polygon Area</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-1 bg-green-500 rounded-full shadow-sm"></div>
-                <span className="text-xs">Circle Area</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-1 bg-purple-500 rounded-full shadow-sm"></div>
-                <span className="text-xs">Hover Highlight</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                <span className="text-xs">Point Geofence</span>
-              </div>
+          <div className="mt-1 pt-1 border-t border-gray-100">
+            <div className="text-xs text-gray-500 flex items-center gap-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span>Live Updates</span>
             </div>
-          </div>
-        </div>
-        <div className="mt-3 pt-2 border-t border-gray-100">
-          <div className="text-xs text-gray-500 flex items-center gap-1">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-            <span>Live Updates Active</span>
           </div>
         </div>
       </div>
 
       {/* Keyboard Shortcuts Help */}
-      <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 text-sm max-w-xs">
-        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-          <div className="w-4 h-4 rounded bg-gradient-to-r from-purple-500 to-pink-500"></div>
-          <span className="font-semibold text-gray-900">Shortcuts</span>
-        </div>
-        <div className="space-y-2 text-xs">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Focus Search:</span>
-            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Ctrl+F</kbd>
+      <div className="group relative absolute bottom-4 right-4 z-10">
+        <button
+          className="bg-white p-1 rounded shadow hover:bg-gray-100"
+          title="Shortcuts"
+        >
+          ≡
+        </button>
+        <div className="absolute bottom-full left-0 mb-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out transform -translate-y-2 group-hover:translate-y-0 bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-gray-200 p-2 text-xs max-w-sm z-10">
+          <div className="flex items-center gap-1 mb-1 pb-1 border-b border-gray-100">
+            <div className="w-3 h-3 rounded bg-gradient-to-r from-purple-500 to-pink-500"></div>
+            <span className="font-semibold text-gray-900">Shortcuts</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Refresh Data:</span>
-            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Ctrl+R</kbd>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Search:</span>
+              <kbd className="bg-gray-100 px-1 py-0.5 rounded border text-gray-800">Ctrl+F</kbd>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Refresh:</span>
+              <kbd className="bg-gray-100 px-1 py-0.5 rounded border text-gray-800">Ctrl+R</kbd>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Select:</span>
+              <kbd className="bg-gray-100 px-1 py-0.5 rounded border text-gray-800">1</kbd>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Polygon:</span>
+              <kbd className="bg-gray-100 px-1 py-0.5 rounded border text-gray-800">2</kbd>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Circle:</span>
+              <kbd className="bg-gray-100 px-1 py-0.5 rounded border text-gray-800">3</kbd>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Clear:</span>
+              <kbd className="bg-gray-100 px-1 py-0.5 rounded border text-gray-800">Ctrl+C</kbd>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Delete:</span>
+              <kbd className="bg-gray-100 px-1 py-0.5 rounded border text-gray-800">Del</kbd>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Deselect:</span>
+              <kbd className="bg-gray-100 px-1 py-0.5 rounded border text-gray-800">Esc</kbd>
+            </div>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Select Mode:</span>
-            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">1</kbd>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Draw Polygon:</span>
-            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">2</kbd>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Draw Circle:</span>
-            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">3</kbd>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Clear Drawing:</span>
-            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Ctrl+C</kbd>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Delete Selected:</span>
-            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Del</kbd>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Deselect:</span>
-            <kbd className="bg-gray-100 px-2 py-1 rounded border text-gray-800">Esc</kbd>
-          </div>
-        </div>
-        <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-500">
-          <div className="flex items-center gap-1">
-            <span>⌨️ Click to select • Double-click to zoom</span>
+          <div className="mt-1 pt-1 border-t border-gray-100 text-xs text-gray-500">
+            <div className="flex items-center gap-1">
+              <span>⌨️ Click to select • Double-click to zoom</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1491,13 +1515,13 @@ export function Map({
         if (!selectedGeofence) return null;
 
         return (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-200 p-4 text-sm max-w-xs z-40 ml-20">
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-              <div className="w-4 h-4 rounded bg-gradient-to-r from-red-500 to-orange-500"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 p-3 text-xs max-w-sm z-40 ml-20">
+            <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-gray-100">
+              <div className="w-3 h-3 rounded bg-gradient-to-r from-red-500 to-orange-500"></div>
               <span className="font-semibold text-gray-900">Selected Geofence</span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <div>
                 <span className="font-medium text-gray-700">Name:</span>
                 <p className="text-gray-900 font-semibold">{selectedGeofence.name}</p>
@@ -1505,14 +1529,14 @@ export function Map({
 
               <div>
                 <span className="font-medium text-gray-700">Type:</span>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className={`w-3 h-1 rounded-full ${selectedGeofence.type === 'circle' ? 'bg-green-500' : 'bg-blue-500'
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className={`w-2 h-1 rounded-full ${selectedGeofence.type === 'circle' ? 'bg-green-500' : 'bg-blue-500'
                     }`}></div>
                   <span className="text-gray-600 capitalize">{selectedGeofence.type}</span>
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-4">
+              <div className="flex gap-1.5 mt-2">
                 <button
                   onClick={() => {
                     console.log('Delete button clicked, selectedGeofenceId:', selectedGeofenceId);
@@ -1528,7 +1552,7 @@ export function Map({
                       console.error('Could not find geofence to delete');
                     }
                   }}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg text-xs font-medium transition-colors"
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-2 rounded-md text-xs font-medium transition-colors"
                 >
                   🗑️ Delete
                 </button>
@@ -1546,14 +1570,14 @@ export function Map({
                       map.current!.setFilter('geofences-selected-points', ['==', ['get', 'id'], '']);
                     }
                   }}
-                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg text-xs font-medium transition-colors"
+                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-1.5 px-2 rounded-md text-xs font-medium transition-colors"
                 >
                   ✕ Deselect
                 </button>
               </div>
             </div>
 
-            <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-gray-500">
+            <div className="mt-2 pt-1.5 border-t border-gray-100 text-xs text-gray-500">
               <div className="flex items-center gap-1">
                 <span>Press Del to delete • Esc to deselect</span>
               </div>
@@ -1565,28 +1589,28 @@ export function Map({
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirmation && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-6 max-w-md mx-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                <div className="w-6 h-6 text-red-600">🗑️</div>
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm mx-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <div className="w-5 h-5 text-red-600">🗑️</div>
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Delete Geofence</h3>
-                <p className="text-sm text-gray-600">This action cannot be undone</p>
+                <h3 className="font-semibold text-gray-900 text-sm">Delete Geofence</h3>
+                <p className="text-xs text-gray-600">This action cannot be undone</p>
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <p className="text-sm text-gray-700">
+            <div className="bg-gray-50 rounded-md p-2 mb-3">
+              <p className="text-xs text-gray-700">
                 Are you sure you want to delete{' '}
                 <span className="font-semibold text-gray-900">&ldquo;{showDeleteConfirmation.name}&rdquo;</span>?
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={() => setShowDeleteConfirmation(null)}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium transition-colors"
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 px-3 rounded-md font-medium transition-colors text-xs"
               >
                 Cancel
               </button>
@@ -1607,7 +1631,7 @@ export function Map({
                     map.current!.setFilter('geofences-selected-points', ['==', ['get', 'id'], '']);
                   }
                 }}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-3 rounded-md font-medium transition-colors text-xs"
               >
                 Delete
               </button>
