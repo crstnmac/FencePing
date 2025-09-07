@@ -1,21 +1,12 @@
-# Multi-stage build for Next.js production
-FROM node:20-slim AS base
-
-# Install basic system dependencies and build tools for native modules
-RUN apt-get update && apt-get install -y \
-    wget \
-    curl \
-    python3 \
-    make \
-    g++ \
-    libc6-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Multi-stage build for Next.js 15 production with Tailwind v4
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
+# Copy package files for better Docker layer caching
 COPY package*.json ./
 COPY turbo.json ./
 COPY packages/shared/package*.json ./packages/shared/
@@ -25,40 +16,46 @@ COPY apps/dashboard/package*.json ./apps/dashboard/
 # Enable corepack to handle packageManager field
 RUN corepack enable npm
 
-# Install dependencies including optional packages and rebuild native modules
-RUN npm ci --include=optional && \
-    npm cache clean --force
+# Install ALL dependencies (including devDependencies) for Tailwind v4 to work in production
+RUN npm ci --include=optional --include=dev && npm cache clean --force
 
 # Build the source code
 FROM base AS builder
 WORKDIR /app
 
-# Enable corepack for build stage
-RUN corepack enable npm
-
-COPY . .
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
-# Set turbo environment for Docker builds
+# Copy all source files
+COPY . .
+
+# Set environment variables for optimized builds
 ENV TURBO_DAEMON=false
 ENV CI=1
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
-# Build dashboard and dependencies in single command
+# Build dashboard with standalone output for optimal Docker image size
 RUN npm run build:dashboard
 
-# Production image
-FROM base AS runner
+# Production runtime image
+FROM node:20-alpine AS runner
+RUN apk add --no-cache dumb-init
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Create system user for security
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
 
-# Copy built application
+# Copy standalone build from builder stage
 COPY --from=builder /app/apps/dashboard/public ./public
+
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/apps/dashboard/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/dashboard/.next/static ./.next/static
 
@@ -68,8 +65,11 @@ EXPOSE 3000
 
 ENV HOSTNAME="0.0.0.0"
 
-# Health check
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Health check optimized for standalone mode
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health 2>/dev/null || exit 1
 
 CMD ["node", "server.js"]
