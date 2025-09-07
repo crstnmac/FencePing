@@ -49,6 +49,9 @@ COPY --from=builder --chown=mqtt-ingestion:nodejs /app/package*.json ./
 COPY --from=builder --chown=mqtt-ingestion:nodejs /app/packages/shared/package*.json ./packages/shared/
 COPY --from=builder --chown=mqtt-ingestion:nodejs /app/apps/mqtt-ingestion/package*.json ./apps/mqtt-ingestion/
 
+# Ensure the app directory is fully owned by the service user for turbo cache
+RUN chown -R mqtt-ingestion:nodejs /app
+
 USER mqtt-ingestion
 
 # Health check via process check

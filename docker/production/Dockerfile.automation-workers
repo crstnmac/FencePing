@@ -49,6 +49,9 @@ COPY --from=builder --chown=automation-workers:nodejs /app/package*.json ./
 COPY --from=builder --chown=automation-workers:nodejs /app/packages/shared/package*.json ./packages/shared/
 COPY --from=builder --chown=automation-workers:nodejs /app/apps/automation-workers/package*.json ./apps/automation-workers/
 
+# Ensure the app directory is fully owned by the service user for turbo cache
+RUN chown -R automation-workers:nodejs /app
+
 USER automation-workers
 
 # Health check via process check

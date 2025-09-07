@@ -54,6 +54,9 @@ COPY --from=builder --chown=api:nodejs /app/packages/shared/package*.json ./pack
 COPY --from=builder --chown=api:nodejs /app/packages/db/package*.json ./packages/db/
 COPY --from=builder --chown=api:nodejs /app/apps/api/package*.json ./apps/api/
 
+# Ensure the app directory is fully owned by the api user for turbo cache
+RUN chown -R api:nodejs /app
+
 USER api
 
 EXPOSE 3001
