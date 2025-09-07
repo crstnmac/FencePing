@@ -16,6 +16,8 @@ services:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
     expose:
       - "5432"
+    ports:
+      - 5432
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -33,6 +35,8 @@ services:
       - redis_data:/data
     expose:
       - "6379"
+    ports:
+      - 6379
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -74,6 +78,8 @@ services:
       - kafka_data:/var/lib/kafka/data
     expose:
       - "29092"
+    ports:
+      - 29092
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -98,6 +104,10 @@ services:
       - "1883"   # MQTT
       - "8083"   # MQTT over WebSocket
       - "18083"  # Dashboard
+    ports:
+      - 1883
+      - 8083
+      - 18083
     volumes:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
@@ -141,6 +151,8 @@ services:
     networks:
       - dokploy-network
     restart: unless-stopped
+    ports:
+      - 3001
     expose:
       - "3001"
     labels:
@@ -170,6 +182,8 @@ services:
     networks:
       - dokploy-network
     restart: unless-stopped
+    ports:
+      - 3002
     expose:
       - "3002"
     labels:
@@ -268,6 +282,8 @@ services:
       - '--web.enable-lifecycle'
     expose:
       - "9090"
+    ports:
+      - 9090
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -277,18 +293,19 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-grafana_dev_password}
       GF_USERS_ALLOW_SIGN_UP: 'false'
+      PORT: 3434
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
     expose:
-      - "3000"
+      - "3434"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.geofence-grafana.rule=Host(`grafana.${DOMAIN:-localhost}`)"
       - "traefik.http.routers.geofence-grafana.entrypoints=websecure"
       - "traefik.http.routers.geofence-grafana.tls.certresolver=letsencrypt"
-      - "traefik.http.services.geofence-grafana.loadbalancer.server.port=3000"
+      - "traefik.http.services.geofence-grafana.loadbalancer.server.port=3434"
     networks:
       - dokploy-network
     restart: unless-stopped
