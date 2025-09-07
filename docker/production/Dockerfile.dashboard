@@ -36,11 +36,13 @@ COPY --from=deps /app/node_modules ./node_modules
 # Set turbo environment for Docker builds
 ENV TURBO_DAEMON=false
 ENV CI=1
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV TURBOPACK=1
 
 # Build shared packages first
 RUN npm run build:packages
 
-# Build dashboard
+# Build dashboard with turbopack
 RUN npm run build:dashboard
 
 # Production image
