@@ -101,10 +101,12 @@ router.get('/', optionalAuth, requireAuth, async (req, res) => {
         meta,
         created_at,
         CASE 
+          WHEN last_location IS NOT NULL THEN ST_X(last_location)
           WHEN meta ? 'longitude' THEN (meta->>'longitude')::float 
           ELSE NULL 
         END as longitude,
         CASE 
+          WHEN last_location IS NOT NULL THEN ST_Y(last_location)
           WHEN meta ? 'latitude' THEN (meta->>'latitude')::float 
           ELSE NULL 
         END as latitude
@@ -1791,12 +1793,12 @@ router.post('/:deviceKey/location', async (req, res) => {
       ]
     );
     
-    // Update device status
+    // Update device status and last_location
     await query(
       `UPDATE devices 
-       SET status = 'online', last_heartbeat = NOW()
-       WHERE id = $1`,
-      [device.id]
+       SET status = 'online', last_heartbeat = NOW(), last_location = ST_SetSRID(ST_MakePoint($1, $2), 4326)
+       WHERE id = $3`,
+      [locationData.longitude, locationData.latitude, device.id]
     );
     
     // Check for geofence events (simplified version)
