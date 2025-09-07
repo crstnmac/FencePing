@@ -170,7 +170,7 @@ export async function completeDevicePairing(
 
     // Create device-user association (owner permission)
     await query(
-      `INSERT INTO device_users (device_id, user_id, account_id, permissions, granted_by)
+      `INSERT INTO device_users (device_id, user_id, organization_id, permissions, granted_by)
        VALUES ($1, $2, $3, 'owner', $2)
        ON CONFLICT (device_id, user_id) DO NOTHING`,
       [deviceId, pairingRequest.created_by, accountId]
