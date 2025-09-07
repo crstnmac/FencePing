@@ -15,10 +15,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-geofence} -d ${POSTGRES_DB:-geofence}"]
@@ -28,14 +28,14 @@ services:
 
   # Redis for caching and state management
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
@@ -54,7 +54,7 @@ services:
       - zookeeper_data:/var/lib/zookeeper/data
       - zookeeper_logs:/var/lib/zookeeper/log
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
 
   kafka:
@@ -73,10 +73,10 @@ services:
       KAFKA_LOG_SEGMENT_BYTES: 1073741824 # 1GB
     volumes:
       - kafka_data:/var/lib/kafka/data
-    ports:
-      - "29092:29092"
+    expose:
+      - "29092"
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
@@ -95,15 +95,15 @@ services:
       EMQX_LOADED_PLUGINS: 'emqx_recon,emqx_retainer,emqx_management,emqx_dashboard'
       EMQX_DASHBOARD__DEFAULT_USERNAME: ${EMQX_USERNAME:-admin}
       EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_PASSWORD}
-    ports:
-      - "1883:1883"   # MQTT
-      - "8083:8083"   # MQTT over WebSocket
-      - "18083:18083" # Dashboard
+    expose:
+      - "1883"   # MQTT
+      - "8083"   # MQTT over WebSocket
+      - "18083"  # Dashboard
     volumes:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "/opt/emqx/bin/emqx", "ping"]
@@ -139,10 +139,16 @@ services:
       kafka:
         condition: service_healthy
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
-    ports:
-      - "3001:3001"
+    expose:
+      - "3001"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.geofence-api.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.geofence-api.entrypoints=websecure"
+      - "traefik.http.routers.geofence-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.geofence-api.loadbalancer.server.port=3001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
       interval: 30s
@@ -161,10 +167,16 @@ services:
     depends_on:
       - api
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.geofence-dashboard.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.geofence-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.geofence-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.services.geofence-dashboard.loadbalancer.server.port=3000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
@@ -190,10 +202,8 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
-    deploy:
-      replicas: 2
 
   # Geofence Engine
   geofence-engine:
@@ -214,10 +224,8 @@ services:
       kafka:
         condition: service_healthy
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
-    deploy:
-      replicas: 2
 
   # Automation Workers
   automation-workers:
@@ -238,10 +246,8 @@ services:
       kafka:
         condition: service_healthy
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
-    deploy:
-      replicas: 3
 
   # Monitoring & Observability
   prometheus:
@@ -256,10 +262,10 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--storage.tsdb.retention.time=200h'
       - '--web.enable-lifecycle'
-    ports:
-      - "9090:9090"
+    expose:
+      - "9090"
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
 
   grafana:
@@ -271,10 +277,16 @@ services:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-    ports:
-      - "3002:3000"
+    expose:
+      - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.geofence-grafana.rule=Host(`grafana.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.geofence-grafana.entrypoints=websecure"
+      - "traefik.http.routers.geofence-grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.services.geofence-grafana.loadbalancer.server.port=3000"
     networks:
-      - geofence-network
+      - dokploy-network
     restart: unless-stopped
     depends_on:
       - prometheus
@@ -291,5 +303,5 @@ volumes:
   grafana_data:
 
 networks:
-  geofence-network:
-    driver: bridge
+  dokploy-network:
+    external: true
