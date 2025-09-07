@@ -104,12 +104,6 @@ services:
     networks:
       - dokploy-network
     restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.geofence-mqtt-dashboard.rule=Host(`mqtt.${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.geofence-mqtt-dashboard.entrypoints=websecure"
-      - "traefik.http.routers.geofence-mqtt-dashboard.tls.certresolver=letsencrypt"
-      - "traefik.http.services.geofence-mqtt-dashboard.loadbalancer.server.port=18083"
     healthcheck:
       test: ["CMD", "/opt/emqx/bin/emqx", "ping"]
       interval: 30s
@@ -149,12 +143,6 @@ services:
     restart: unless-stopped
     expose:
       - "3001"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.geofence-api.rule=Host(`${DOMAIN:-localhost}`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.geofence-api.entrypoints=websecure"
-      - "traefik.http.routers.geofence-api.tls.certresolver=letsencrypt"
-      - "traefik.http.services.geofence-api.loadbalancer.server.port=3001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
       interval: 30s
@@ -178,12 +166,6 @@ services:
     restart: unless-stopped
     expose:
       - "3002"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.geofence-dashboard.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.geofence-dashboard.entrypoints=websecure"
-      - "traefik.http.routers.geofence-dashboard.tls.certresolver=letsencrypt"
-      - "traefik.http.services.geofence-dashboard.loadbalancer.server.port=3002"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002"]
       interval: 30s
@@ -290,12 +272,6 @@ services:
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
     expose:
       - "3434"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.geofence-grafana.rule=Host(`grafana.${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.geofence-grafana.entrypoints=websecure"
-      - "traefik.http.routers.geofence-grafana.tls.certresolver=letsencrypt"
-      - "traefik.http.services.geofence-grafana.loadbalancer.server.port=3434"
     networks:
       - dokploy-network
     restart: unless-stopped
