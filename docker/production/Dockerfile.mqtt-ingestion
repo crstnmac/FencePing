@@ -26,10 +26,7 @@ COPY --from=deps /app/node_modules ./node_modules
 ENV TURBO_DAEMON=false
 ENV CI=1
 
-# Build shared packages first
-RUN npm run build:packages
-
-# Build MQTT ingestion service
+# Build MQTT ingestion service and dependencies in single command
 RUN npm run build:mqtt-ingestion
 
 # Production image

@@ -40,10 +40,7 @@ ENV CI=1
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TURBOPACK=1
 
-# Build shared packages first
-RUN npm run build:packages
-
-# Build dashboard with turbopack
+# Build dashboard and dependencies in single command
 RUN npm run build:dashboard
 
 # Production image

@@ -11,16 +11,6 @@ const nextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   
-  experimental: {
-    // Latest experimental features for 2025
-    ppr: true, // Partial Prerendering
-    reactCompiler: true, // React Compiler optimization
-    turbo: true, // Use Turbopack
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-    serverActions: {
-      allowedOrigins: ['localhost:3000', 'localhost:3001']
-    }
-  },
 
   // Turbo monorepo configuration
   transpilePackages: ['@geofence/shared'],

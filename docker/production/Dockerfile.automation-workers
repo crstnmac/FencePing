@@ -26,10 +26,7 @@ COPY --from=deps /app/node_modules ./node_modules
 ENV TURBO_DAEMON=false
 ENV CI=1
 
-# Build shared packages first
-RUN npm run build:packages
-
-# Build automation workers
+# Build automation workers and dependencies in single command
 RUN npm run build:automation-workers
 
 # Production image
