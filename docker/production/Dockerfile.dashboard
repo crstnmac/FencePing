@@ -15,6 +15,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY turbo.json ./
 COPY packages/shared/package*.json ./packages/shared/
+COPY packages/db/package*.json ./packages/db/
 COPY apps/dashboard/package*.json ./apps/dashboard/
 
 # Enable corepack to handle packageManager field
