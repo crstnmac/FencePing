@@ -181,6 +181,8 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD:-geofence_dev_password}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
       MQTT_BROKER_URL: mqtt://mqtt-broker:1883
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
       KAFKA_BROKERS: kafka:9092
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       LOG_LEVEL: info
