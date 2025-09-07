@@ -49,8 +49,7 @@
         "NODE_ENV",
         "PORT",
         "JWT_SECRET",
-        "NEXT_PUBLIC_API_URL",
-        "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN"
+        "NEXT_PUBLIC_API_URL"
       ]
     },
     "test": {

@@ -23,7 +23,7 @@ async function checkTables() {
     console.table(result.rows);
     
     // Check for specific tables we're interested in
-    const tables = result.rows.map(row => row.table_name);
+    const tables = result.rows.map((row: any) => row.table_name);
     console.log('\nChecking for specific tables:');
     console.log('device_groups:', tables.includes('device_groups') ? '✅' : '❌');
     console.log('device_tags:', tables.includes('device_tags') ? '✅' : '❌');

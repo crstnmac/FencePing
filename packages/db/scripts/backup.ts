@@ -92,7 +92,7 @@ class DatabaseBackup {
         
         backupInfo.tables[table] = {
           rowCount: result.rows.length,
-          columns: result.fields.map(f => ({ name: f.name, dataTypeID: f.dataTypeID }))
+          columns: result.fields.map((f: any) => ({ name: f.name, dataTypeID: f.dataTypeID }))
         };
 
         // Write table data

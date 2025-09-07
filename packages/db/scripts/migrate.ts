@@ -35,7 +35,7 @@ async function runMigrations() {
 
     // Get list of already executed migrations
     const executedResult = await client.query('SELECT filename FROM migrations ORDER BY id');
-    const executedMigrations = new Set(executedResult.rows.map(row => row.filename));
+    const executedMigrations = new Set(executedResult.rows.map((row: any) => row.filename));
 
     // Read migration files
     const migrationsDir = path.join(__dirname, '../src/migrations');
