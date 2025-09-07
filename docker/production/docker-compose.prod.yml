@@ -144,10 +144,10 @@ services:
     expose:
       - "3001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
 
   # Dashboard (Next.js)
   dashboard:
@@ -167,10 +167,10 @@ services:
     expose:
       - "3002"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
 
   # MQTT Ingestion Service
   mqtt-ingestion:
