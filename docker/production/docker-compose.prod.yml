@@ -131,6 +131,7 @@ services:
       SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET}
       API_BASE_URL: https://${DOMAIN:-localhost}
       DASHBOARD_URL: https://${DOMAIN:-localhost}
+      FRONTEND_URL: https://${DOMAIN:-localhost}
     depends_on:
       postgres:
         condition: service_healthy
