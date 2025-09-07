@@ -41,7 +41,7 @@ export default function AnalyticsPage() {
   const activeAutomations = automations.filter(a => a.is_active).length;
 
   // Event type distribution
-  const eventTypes = Array.isArray(events) ? events.reduce((acc, event) => {
+  const eventTypes = Array.isArray(events) ? events.reduce((acc, event: any) => {
     const type = event.event_type || 'unknown';
     acc[type] = (acc[type] || 0) + 1;
     return acc;
@@ -57,7 +57,7 @@ export default function AnalyticsPage() {
   const topGeofences = geofences
     .map(geofence => ({
       ...geofence,
-      eventCount: Array.isArray(events) ? events.filter(e => e.geofence?.id === geofence.id).length : 0
+      eventCount: Array.isArray(events) ? events.filter((e: any) => e.geofence?.id === geofence.id).length : 0
     }))
     .sort((a, b) => b.eventCount - a.eventCount)
     .slice(0, 5);

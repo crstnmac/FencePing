@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { X, QrCode, Copy, RefreshCw, CheckCircle, AlertCircle, Smartphone } from 'lucide-react';
 import {
   useGeneratePairingCode,
@@ -35,12 +36,24 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
   const completePairingMutation = useCompletePairing();
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Memoize generateNewPairingCode function to prevent useEffect re-runs
+  const generateNewPairingCode = useCallback(async () => {
+    try {
+      const result = await generatePairingCodeMutation.mutateAsync();
+      setPairingCode(result);
+      setCountdown(600); // 10 minutes in seconds
+      setCopySuccess(false);
+    } catch (error) {
+      console.error('Failed to generate pairing code:', error);
+    }
+  }, [generatePairingCodeMutation]);
+
   // Auto-generate pairing code when modal opens
   useEffect(() => {
     if (isOpen && !pairingCode) {
       generateNewPairingCode();
     }
-  }, [isOpen]);
+  }, [isOpen, generateNewPairingCode, pairingCode]);
 
   // Countdown timer for pairing code expiration
   useEffect(() => {
@@ -58,7 +71,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
         clearTimeout(countdownRef.current);
       }
     };
-  }, [countdown, pairingCode]);
+  }, [countdown, pairingCode, generateNewPairingCode]);
 
   // Generate QR code URL when pairing code is available
   useEffect(() => {
@@ -72,17 +85,6 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
       setQrCodeUrl(generateQRCode(qrData));
     }
   }, [pairingCode]);
-
-  const generateNewPairingCode = async () => {
-    try {
-      const result = await generatePairingCodeMutation.mutateAsync();
-      setPairingCode(result);
-      setCountdown(600); // 10 minutes in seconds
-      setCopySuccess(false);
-    } catch (error) {
-      console.error('Failed to generate pairing code:', error);
-    }
-  };
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -194,10 +196,12 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
                 {/* QR Code Display */}
                 {showQR && qrCodeUrl && (
                   <div className="flex flex-col items-center space-y-2 p-4 bg-gray-50 rounded-lg">
-                    <img
+                    <Image
                       src={qrCodeUrl}
                       alt="Pairing QR Code"
-                      className="w-48 h-48 border-2 border-white"
+                      width={192}
+                      height={192}
+                      className="border-2 border-white"
                     />
                     <p className="text-sm text-gray-600 text-center">
                       Scan this QR code from your device to start pairing

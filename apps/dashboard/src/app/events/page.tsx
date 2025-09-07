@@ -64,7 +64,7 @@ export default function EventsPage() {
 
   // API call with React Query
   const { data: eventsResponse, isLoading, error, refetch } = useEvents(apiParams);
-  const events = eventsResponse?.data || [];
+  const events = useMemo(() => eventsResponse?.data || [], [eventsResponse?.data]);
   const totalEvents = eventsResponse?.pagination?.total || 0;
   const hasMore = eventsResponse?.pagination?.has_more || false;
 

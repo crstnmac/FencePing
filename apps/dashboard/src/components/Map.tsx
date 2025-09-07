@@ -183,7 +183,7 @@ export function Map({
           id: featureId, // Always use string ID
           properties: {
             name: geofence.name,
-            type: geofence.type || geofence.geofence_type,
+            type: geofence.type || (geofence as any).geofence_type,
             id: featureId // Store string ID in properties too
           },
           geometry: geofence.geometry
@@ -718,7 +718,7 @@ export function Map({
           }
           break;
         case 'r':
-          if (e.ctrlKey || e.metaCmd) {
+          if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             loadGeofences();
             loadDevices();
@@ -795,7 +795,7 @@ export function Map({
         map.current = null;
       }
     };
-  }, []); // Empty dependency array to prevent re-initialization
+  }, [geofences, loadDevices, loadGeofences, selectedGeofenceId]); // Include all dependencies
 
   // Debounced search effect
   useEffect(() => {
@@ -955,7 +955,7 @@ export function Map({
                       <p className="font-semibold text-gray-900 truncate">{result.place_name.split(',')[0]}</p>
                       <p className="text-sm text-gray-600 mt-1 line-clamp-2">{result.place_name}</p>
                       <div className="flex items-center mt-2 text-xs text-gray-500">
-                        <span className="bg-gray-100 px-2 py-1 rounded-full">{result.properties?.type || 'Location'}</span>
+                        <span className="bg-gray-100 px-2 py-1 rounded-full">{result.place_type?.[0] || 'Location'}</span>
                       </div>
                     </div>
                   </div>
@@ -1055,7 +1055,7 @@ export function Map({
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="font-semibold text-green-600">
-                {devices?.filter(d => d.status === 'online').length || 0}
+                {devices?.filter(d => d.isActive).length || 0}
               </span>
             </div>
           </div>
@@ -1266,7 +1266,7 @@ export function Map({
             <div className="bg-gray-50 rounded-lg p-3 mb-4">
               <p className="text-sm text-gray-700">
                 Are you sure you want to delete{' '}
-                <span className="font-semibold text-gray-900">"{showDeleteConfirmation.name}"</span>?
+                <span className="font-semibold text-gray-900">&ldquo;{showDeleteConfirmation.name}&rdquo;</span>?
               </p>
             </div>
             
