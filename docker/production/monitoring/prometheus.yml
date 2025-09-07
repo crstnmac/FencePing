@@ -20,7 +20,7 @@ scrape_configs:
 
   - job_name: 'geofence-dashboard'
     static_configs:
-      - targets: ['dashboard:3000']
+      - targets: ['dashboard:3002']
     metrics_path: '/api/metrics'
     scrape_interval: 30s
 

@@ -121,7 +121,7 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       KAFKA_BROKERS: kafka:9092
       JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production_12345678901234567890}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev_encryption_key_change_in_production_32_bytes}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789}
       JWT_EXPIRES_IN: 7d
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
@@ -164,21 +164,22 @@ services:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://${DOMAIN:-localhost}/api
       NEXT_TELEMETRY_DISABLED: 1
+      PORT: 3002
     depends_on:
       - api
     networks:
       - dokploy-network
     restart: unless-stopped
     expose:
-      - "3000"
+      - "3002"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.geofence-dashboard.rule=Host(`${DOMAIN:-localhost}`)"
       - "traefik.http.routers.geofence-dashboard.entrypoints=websecure"
       - "traefik.http.routers.geofence-dashboard.tls.certresolver=letsencrypt"
-      - "traefik.http.services.geofence-dashboard.loadbalancer.server.port=3000"
+      - "traefik.http.services.geofence-dashboard.loadbalancer.server.port=3002"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "curl", "-f", "http://localhost:3002"]
       interval: 30s
       timeout: 10s
       retries: 5
