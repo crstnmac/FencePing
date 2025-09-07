@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -17,6 +18,7 @@ import com.crstnmac.fenceping.data.api.*
 import com.crstnmac.fenceping.data.repository.PairingRepository
 import com.crstnmac.fenceping.data.repository.DeviceRepository
 import com.crstnmac.fenceping.data.storage.SecureStorage
+import com.crstnmac.fenceping.services.LocationService
 import com.crstnmac.fenceping.ui.screens.*
 import com.crstnmac.fenceping.ui.theme.FencepingTheme
 import kotlinx.coroutines.launch
@@ -171,7 +173,7 @@ fun FencePingApp(
                 DeviceInfoScreen(
                     pairingCode = pairingCode,
                     isLoading = isSubmitting,
-                    onDeviceInfoSubmitted = { deviceInfo ->
+                    onDeviceInfoSubmitted = { deviceInfo, context ->
                         isSubmitting = true
                         
                         val pairingRequest = PairingRequest(
@@ -208,8 +210,10 @@ fun FencePingApp(
                                             isOnline = pairingData.deviceInfo.status == "online",
                                             batteryLevel = 100,
                                             lastLocationUpdate = System.currentTimeMillis(),
-                                            locationTrackingEnabled = false
+                                            locationTrackingEnabled = true
                                         )
+                                        
+                                        LocationService.startService(context)
                                         
                                         navController.navigate("dashboard") {
                                             popUpTo("pairing") { inclusive = true }

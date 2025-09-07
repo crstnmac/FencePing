@@ -27,6 +27,7 @@ export default function GeofencesPage() {
   console.log('🎯 GeofencesPage component is rendering!');
   const { data: geofences = [], isLoading, error } = useGeofences();
   const { data: devices = [] } = useDevices();
+
   const deleteGeofenceMutation = useDeleteGeofence();
   const createGeofenceMutation = useCreateGeofence();
   const updateGeofenceMutation = useUpdateGeofence();
@@ -94,12 +95,19 @@ export default function GeofencesPage() {
             latitude: pendingGeofence.center![1]
           };
           geofenceData.radius = pendingGeofence.radius || 100;
-        } else {
-          // Convert coordinates to the expected format for polygon/point
+        } else if (pendingGeofence.type === 'polygon') {
+          // Convert coordinates to the expected format for polygon
           geofenceData.coordinates = pendingGeofence.coordinates.map((coord: number[]) => ({
             longitude: coord[0],
             latitude: coord[1]
           }));
+        } else if (pendingGeofence.type === 'point') {
+          // For point geofences, use the single coordinate
+          const coord = pendingGeofence.coordinates[0];
+          geofenceData.coordinates = [{
+            longitude: coord[0],
+            latitude: coord[1]
+          }];
         }
 
         await createGeofenceMutation.mutateAsync(geofenceData);
@@ -441,10 +449,42 @@ export default function GeofencesPage() {
         {showMap && (
           <div className="flex-1 relative">
             <Map
-              geofences={filteredGeofences.map(geofence => ({
-                ...geofence,
-                type: geofence.geofence_type
-              }))}
+              geofences={(() => {
+                const mapGeofences = filteredGeofences.map(geofence => {
+                  // Ensure consistent data structure for Map component
+                  const mapGeofence = {
+                    id: String(geofence.id), // Ensure ID is always string
+                    name: geofence.name || 'Unnamed Geofence',
+                    geometry: geofence.geometry,
+                    type: (geofence.geofence_type || 'polygon') as 'polygon' | 'circle' | 'point'
+                  };
+                  
+                  // Validate geometry exists and has proper structure
+                  if (!mapGeofence.geometry || !mapGeofence.geometry.coordinates) {
+                    console.warn('🗺️ Invalid geofence geometry:', geofence.name, geofence);
+                    return null;
+                  }
+                  
+                  console.log('🗺️ Passing geofence to Map:', {
+                    id: mapGeofence.id,
+                    name: mapGeofence.name,
+                    type: mapGeofence.type,
+                    geometryType: mapGeofence.geometry?.type,
+                    hasCoordinates: !!mapGeofence.geometry?.coordinates
+                  });
+                  
+                  return mapGeofence;
+                }).filter(g => g !== null) as Array<{
+                  id: string;
+                  name: string; 
+                  geometry: any;
+                  type: 'polygon' | 'circle' | 'point';
+                }>;
+                
+                console.log('🗺️ Total geofences being passed to Map component:', mapGeofences.length);
+                
+                return mapGeofences;
+              })()}
               devices={showDevices ? devices
                 .filter(device => device.longitude && device.latitude) // Only show devices with known locations
                 .map(device => ({

@@ -13,6 +13,7 @@ async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  console.log('🔑 API Request:', endpoint, 'Token exists:', !!token);
   
   // In development, provide organization header fallback for backwards compatibility
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -22,9 +23,11 @@ async function apiRequest<T>(
   headers.set('Content-Type', 'application/json');
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
+    console.log('🔑 Added Authorization header');
   }
   if (isDevelopment && !token) {
     headers.set('x-dev-mode', 'true');
+    console.log('🔑 Added dev-mode header');
   }
 
   const response = await fetch(`${apiUrl}${endpoint}`, {
@@ -291,11 +294,16 @@ export interface Geofence {
   id: string;
   name: string;
   description?: string;
-  geofence_type: 'polygon' | 'circle';
-  geometry: any;
+  geofence_type: 'polygon' | 'circle' | 'point';
+  geometry: {
+    type: string;
+    coordinates: number[][] | number[] | number[][][];
+  };
+  metadata?: Record<string, any>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  radius_m?: number;
 }
 
 // Automation Types (basic structure for now)
@@ -775,8 +783,36 @@ export const eventService = {
 export const geofenceService = {
   // Get all geofences
   async getGeofences(): Promise<Geofence[]> {
+    console.log('🔍 Fetching geofences from API...');
     const response = await apiRequest<{ data: Geofence[]; total: number }>('/api/geofences');
-    return response.data || [];
+    console.log('🔍 Geofences API response:', response);
+    
+    // Validate and normalize the response data
+    const geofences = (response.data || []).map((geofence, index) => {
+      // Validate essential fields
+      if (!geofence.id) {
+        console.warn(`🔍 Geofence at index ${index} missing ID:`, geofence);
+        return null;
+      }
+      
+      if (!geofence.geometry || !geofence.geometry.coordinates) {
+        console.warn(`🔍 Geofence "${geofence.name}" missing valid geometry:`, geofence);
+        return null;
+      }
+      
+      // Normalize the geofence data
+      return {
+        ...geofence,
+        id: String(geofence.id), // Ensure ID is string
+        name: geofence.name || 'Unnamed Geofence',
+        geofence_type: geofence.geofence_type || 'polygon',
+        is_active: geofence.is_active !== undefined ? geofence.is_active : true,
+        metadata: geofence.metadata || {}
+      };
+    }).filter(g => g !== null) as Geofence[];
+    
+    console.log('🔍 Normalized geofences:', geofences.length, 'valid geofences');
+    return geofences;
   },
 
   // Get specific geofence

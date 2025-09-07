@@ -11,14 +11,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun DeviceInfoScreen(
     pairingCode: String,
-    onDeviceInfoSubmitted: (DeviceInfo) -> Unit,
+    onDeviceInfoSubmitted: (DeviceInfo, android.content.Context) -> Unit,
     isLoading: Boolean = false
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var deviceName by remember { mutableStateOf("") }
     var deviceModel by remember { mutableStateOf(Build.MODEL) }
     var deviceFirmwareVersion by remember { mutableStateOf(Build.VERSION.RELEASE) }
@@ -107,7 +109,7 @@ fun DeviceInfoScreen(
                     deviceFirmwareVersion = deviceFirmwareVersion.trim(),
                     deviceOs = deviceOs.trim()
                 )
-                onDeviceInfoSubmitted(deviceInfo)
+                onDeviceInfoSubmitted(deviceInfo, context)
             },
             enabled = isFormValid && !isLoading,
             modifier = Modifier.fillMaxWidth()

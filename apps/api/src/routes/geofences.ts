@@ -27,9 +27,20 @@ const CreatePolygonGeofenceSchema = z.object({
   metadata: z.record(z.unknown()).optional()
 });
 
+const CreatePointGeofenceSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  coordinates: z.array(z.object({
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180)
+  })).length(1),
+  metadata: z.record(z.unknown()).optional()
+});
+
 const CreateGeofenceSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('circle') }).merge(CreateCircleGeofenceSchema),
-  z.object({ type: z.literal('polygon') }).merge(CreatePolygonGeofenceSchema)
+  z.object({ type: z.literal('polygon') }).merge(CreatePolygonGeofenceSchema),
+  z.object({ type: z.literal('point') }).merge(CreatePointGeofenceSchema)
 ]);
 
 const UpdateGeofenceSchema = z.object({
@@ -112,29 +123,81 @@ router.get('/', requireAuth, requireAccount, async (req, res) => {
 // Create new geofence
 router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema), async (req, res) => {
   try {
-    let geometryWKT: string;
+    let queryText: string = '';
+    let queryParams: any[] = [];
 
     if (req.body.type === 'circle') {
       const { center, radius } = req.body;
-      geometryWKT = `ST_Buffer(ST_SetSRID(ST_MakePoint(${center.longitude}, ${center.latitude}), 4326)::geography, ${radius})::geometry`;
+      queryText = `
+        INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata)
+        VALUES ($1, $2, $3, ST_Buffer(ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography, $6)::geometry, $7, $8)
+        RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at
+      `;
+      queryParams = [
+        req.body.name,
+        req.body.description || null,
+        req.accountId,
+        center.longitude,
+        center.latitude,
+        radius,
+        req.body.type,
+        JSON.stringify(req.body.metadata || {})
+      ];
+    } else if (req.body.type === 'polygon') {
+      const coordinates = req.body.coordinates;
+      // Create GeoJSON polygon format for PostGIS
+      const geoJsonPolygon = {
+        type: 'Polygon',
+        coordinates: [[
+          ...coordinates.map((coord: { longitude: number; latitude: number }) => [coord.longitude, coord.latitude]),
+          [coordinates[0].longitude, coordinates[0].latitude] // Close the polygon
+        ]]
+      };
+      
+      queryText = `
+        INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata)
+        VALUES ($1, $2, $3, ST_GeomFromGeoJSON($4), $5, $6)
+        RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at
+      `;
+      queryParams = [
+        req.body.name,
+        req.body.description || null,
+        req.accountId,
+        JSON.stringify(geoJsonPolygon),
+        req.body.type,
+        JSON.stringify(req.body.metadata || {})
+      ];
+    } else if (req.body.type === 'point') {
+      const coord = req.body.coordinates[0];
+      queryText = `
+        INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata)
+        VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6, $7)
+        RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at
+      `;
+      queryParams = [
+        req.body.name,
+        req.body.description || null,
+        req.accountId,
+        coord.longitude,
+        coord.latitude,
+        req.body.type,
+        JSON.stringify(req.body.metadata || {})
+      ];
     } else {
-      const coordinatePoints = req.body.coordinates.map((coord: { longitude: any; latitude: any; }) => `ST_MakePoint(${coord.longitude}, ${coord.latitude})`).join(', ');
-      geometryWKT = `ST_SetSRID(ST_MakePolygon(ST_MakeLine(ARRAY[${coordinatePoints}, ST_MakePoint(${req.body.coordinates[0].longitude}, ${req.body.coordinates[0].latitude})])), 4326)`;
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid geofence type'
+      });
     }
 
-    const queryText = `
-      INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata)
-      VALUES ($1, $2, $3, ${geometryWKT}, $4, $5)
-      RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at
-    `;
+    if (!queryText || queryParams.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid geofence data'
+      });
+    }
 
-    const result = await query(queryText, [
-      req.body.name,
-      req.body.description || null,
-      req.accountId,
-      req.body.type,
-      JSON.stringify(req.body.metadata || {})
-    ]);
+    const result = await query(queryText, queryParams);
 
     const geofence = {
       ...result.rows[0],
