@@ -115,11 +115,10 @@ export async function completeDevicePairing(
   deviceInfo: z.infer<typeof DeviceRegistrationSchema>
 ): Promise<z.infer<typeof DeviceTokenResponseSchema> | null> {
   try {
-    // Find pairing request
+    // Find valid pairing request (without JOIN to devices table)
     const pairingRequestResult = await query(
-      `SELECT dpr.*, d.id as device_id, d.account_id, d.account_id
+      `SELECT dpr.*
        FROM device_pairing_requests dpr
-       JOIN devices d ON dpr.pairing_code = d.pairing_code
        WHERE dpr.pairing_code = $1 AND dpr.expires_at > NOW() AND dpr.used_at IS NULL`,
       [pairingCode]
     );
@@ -129,28 +128,44 @@ export async function completeDevicePairing(
     }
 
     const pairingRequest = pairingRequestResult.rows[0];
-    const deviceId = pairingRequest.device_id;
     const accountId = pairingRequest.account_id;
 
     await query('BEGIN');
+
+    // Generate device key using crypto
+    const { randomBytes } = await import('crypto');
+    const deviceKey = randomBytes(32).toString('hex');
+
+    // Create device record
+    const deviceResult = await query(
+      `INSERT INTO devices (
+         name, account_id, device_key, device_type, device_model,
+         device_firmware_version, device_os, connection_type, is_paired,
+         status, last_heartbeat, meta, capabilities, created_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), $11, $12, NOW())
+       RETURNING id`,
+      [
+        deviceInfo.name,
+        accountId,
+        deviceKey,
+        deviceInfo.deviceModel || 'android',
+        deviceInfo.deviceModel || 'Android Device',
+        deviceInfo.deviceFirmwareVersion || null,
+        deviceInfo.deviceOs || null,
+        'http', // Connection type for mobile apps
+        true,   // is_paired
+        'online', // status
+        JSON.stringify(deviceInfo.meta || {}),
+        JSON.stringify(deviceInfo.capabilities || {})
+      ]
+    );
+
+    const deviceId = deviceResult.rows[0].id;
 
     // Mark pairing request as used
     await query(
       'UPDATE device_pairing_requests SET used_at = NOW() WHERE id = $1',
       [pairingRequest.id]
-    );
-
-    // Update device as paired and set ownership
-    await query(
-      `UPDATE devices SET
-         is_paired = true,
-         pairing_code = NULL,
-         pairing_expires_at = NULL,
-         status = 'online',
-         last_heartbeat = NOW(),
-         updated_at = NOW()
-       WHERE id = $1`,
-      [deviceId]
     );
 
     // Create device-user association (owner permission)
@@ -161,7 +176,7 @@ export async function completeDevicePairing(
       [deviceId, pairingRequest.created_by, accountId]
     );
 
-    // Generate tokens
+    // Generate tokens for the device
     const tokens = await generateDeviceTokens(deviceId, accountId, accountId);
 
     await query('COMMIT');
