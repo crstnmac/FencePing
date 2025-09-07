@@ -31,6 +31,9 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy for production deployment behind reverse proxy
+app.set('trust proxy', true);
+
 // Security and performance middleware
 app.use(helmet({
   crossOriginEmbedderPolicy: false,

@@ -102,6 +102,9 @@ async function main() {
     const express = require('express');
     const app = express();
     
+    // Trust proxy for production deployment behind reverse proxy
+    app.set('trust proxy', true);
+    
     app.get('/health', (req: any, res: any) => {
       const health = {
         status: 'healthy',
