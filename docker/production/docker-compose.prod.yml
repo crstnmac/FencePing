@@ -154,9 +154,12 @@ services:
     build:
       context: ../../
       dockerfile: docker/production/Dockerfile.dashboard
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://${DOMAIN:-localhost}/api}
+        DOMAIN: ${DOMAIN:-localhost}
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: https://${DOMAIN:-localhost}/api
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://${DOMAIN:-localhost}/api}
       NEXT_TELEMETRY_DISABLED: 1
       PORT: 3002
     depends_on:

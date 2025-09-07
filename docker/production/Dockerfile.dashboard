@@ -23,6 +23,10 @@ RUN npm ci --include=optional --include=dev && npm cache clean --force
 FROM base AS builder
 WORKDIR /app
 
+# Accept build arguments for Next.js environment variables
+ARG NEXT_PUBLIC_API_URL
+ARG DOMAIN
+
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
@@ -34,6 +38,9 @@ ENV TURBO_DAEMON=false
 ENV CI=1
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+
+# Set Next.js public environment variables at build time
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Build dashboard with standalone output for optimal Docker image size
 RUN npm run build:dashboard
