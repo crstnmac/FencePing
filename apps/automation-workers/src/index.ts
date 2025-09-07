@@ -103,7 +103,11 @@ async function main() {
     const app = express();
     
     // Trust proxy for production deployment behind reverse proxy
-    app.set('trust proxy', true);
+    if (process.env.NODE_ENV === 'production') {
+      app.set('trust proxy', 1); // Trust first proxy only
+    } else {
+      app.set('trust proxy', 'loopback'); // Trust only loopback for development
+    }
     
     app.get('/health', (req: any, res: any) => {
       const health = {

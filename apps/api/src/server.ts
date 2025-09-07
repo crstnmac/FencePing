@@ -32,7 +32,12 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Trust proxy for production deployment behind reverse proxy
-app.set('trust proxy', true);
+// Configure for specific proxy setup (more secure than 'true')
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1); // Trust first proxy only
+} else {
+  app.set('trust proxy', 'loopback'); // Trust only loopback for development
+}
 
 // Security and performance middleware
 app.use(helmet({
@@ -56,13 +61,14 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
 }));
 
-// Rate limiting - more granular limits
+// Rate limiting - more granular limits with proper proxy handling
 const strictLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 50, // limit each IP to 50 requests per windowMs for sensitive operations
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: process.env.NODE_ENV === 'production' ? 1 : false,
 });
 
 const generalLimiter = rateLimit({
@@ -71,6 +77,7 @@ const generalLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: process.env.NODE_ENV === 'production' ? 1 : false,
 });
 
 // Apply strict limiting to auth endpoints

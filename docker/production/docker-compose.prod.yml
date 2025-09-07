@@ -138,6 +138,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD:-geofence_dev_password}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       KAFKA_BROKERS: kafka:9092
+      KAFKAJS_NO_PARTITIONER_WARNING: 1
       JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production_12345678901234567890}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789}
       JWT_EXPIRES_IN: 7d
