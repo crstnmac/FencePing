@@ -359,7 +359,7 @@ export default function IntegrationsPage() {
                   <div>
                     <h4 className="text-xs font-medium text-yellow-800 mb-1">Authentication Required</h4>
                     <p className="text-xs text-yellow-700">
-                      You'll need to authenticate with the service after creating this integration.
+                      You&apos;ll need to authenticate with the service after creating this integration.
                     </p>
                   </div>
                 </div>

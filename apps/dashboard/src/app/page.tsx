@@ -123,7 +123,7 @@ export default function HomePage() {
             <div className="flex items-center">
               <Zap className="h-8 w-8 text-yellow-600" />
               <div className="ml-4">
-                <p className="text-xs font-medium text-gray-600">Today's Events</p>
+                <p className="text-xs font-medium text-gray-600">Today&apos;s Events</p>
                 <p className="text-xl font-bold text-gray-900">
                   {statsLoading ? '...' : currentStats.todayEvents}
                 </p>
