@@ -63,7 +63,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -78,7 +78,7 @@ services:
       - dokploy-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "0.0.0.0:9092", "--list"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -129,8 +129,8 @@ services:
       NOTION_CLIENT_SECRET: ${NOTION_CLIENT_SECRET}
       SLACK_CLIENT_ID: ${SLACK_CLIENT_ID}
       SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET}
-      API_BASE_URL: https://${DOMAIN:-localhost}
-      DASHBOARD_URL: https://${DOMAIN:-localhost}
+      API_BASE_URL: https://${DOMAIN:-0.0.0.0}
+      DASHBOARD_URL: https://${DOMAIN:-0.0.0.0}
     depends_on:
       postgres:
         condition: service_healthy
@@ -144,7 +144,7 @@ services:
     expose:
       - "3001"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://0.0.0.0:3001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -156,7 +156,7 @@ services:
       dockerfile: docker/production/Dockerfile.dashboard
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: https://${DOMAIN:-localhost}/api
+      NEXT_PUBLIC_API_URL: https://${DOMAIN:-0.0.0.0}/api
       NEXT_TELEMETRY_DISABLED: 1
       PORT: 3002
     depends_on:
@@ -167,7 +167,7 @@ services:
     expose:
       - "3002"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://0.0.0.0:3002"]
       interval: 30s
       timeout: 10s
       retries: 3
