@@ -110,6 +110,24 @@ services:
       retries: 3
       start_period: 30s
 
+  # Database Migration Service (run once)
+  migrations:
+    build:
+      context: ../../
+      dockerfile: docker/production/Dockerfile.api
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-geofence}:${POSTGRES_PASSWORD:-geofence_dev_password}@postgres:5432/${POSTGRES_DB:-geofence}?sslmode=disable
+    command: ["npm", "run", "migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dokploy-network
+    restart: "no"
+    profiles:
+      - migration
+
   # API Server
   api:
     build:

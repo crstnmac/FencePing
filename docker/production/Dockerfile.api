@@ -54,6 +54,11 @@ COPY --from=builder --chown=api:nodejs /app/packages/shared/package*.json ./pack
 COPY --from=builder --chown=api:nodejs /app/packages/db/package*.json ./packages/db/
 COPY --from=builder --chown=api:nodejs /app/apps/api/package*.json ./apps/api/
 
+# Copy migration files and scripts for database operations
+COPY --from=builder --chown=api:nodejs /app/packages/db/src ./packages/db/src
+COPY --from=builder --chown=api:nodejs /app/packages/db/scripts ./packages/db/scripts
+COPY --from=builder --chown=api:nodejs /app/turbo.json ./turbo.json
+
 # Ensure the app directory is fully owned by the api user for turbo cache
 RUN chown -R api:nodejs /app
 
