@@ -67,20 +67,20 @@ class MQTTIngestionService {
   async start(): Promise<void> {
     try {
       logger.info('Starting MQTT Ingestion Service...');
-      
+
       // Initialize Kafka producer
       await this.initializeKafka();
-      
+
       // Initialize MQTT client
       await this.initializeMQTT();
-      
+
       logger.info('✅ MQTT Ingestion Service started successfully');
-      
+
       // Setup graceful shutdown
       this.setupGracefulShutdown();
-      
+
     } catch (error) {
-      logger.error('Failed to start MQTT Ingestion Service:', error);
+      logger.error(error, 'Failed to start MQTT Ingestion Service:',);
       throw error;
     }
   }
@@ -100,7 +100,7 @@ class MQTTIngestionService {
       await this.kafkaProducer.connect();
       logger.info('✅ Kafka producer connected');
     } catch (error) {
-      logger.error('Failed to initialize Kafka:', error);
+      logger.error(error, 'Failed to initialize Kafka:',);
       throw error;
     }
   }
@@ -124,11 +124,11 @@ class MQTTIngestionService {
 
         this.mqttClient.on('connect', () => {
           logger.info('✅ MQTT client connected to broker');
-          
+
           // Subscribe to device location updates
           this.mqttClient!.subscribe(DEVICE_LOCATION_TOPIC, { qos: 1 }, (err) => {
             if (err) {
-              logger.error('Failed to subscribe to device location topic:', err);
+              logger.error(err, 'Failed to subscribe to device location topic:');
               reject(err);
             } else {
               logger.info(`📡 Subscribed to topic: ${DEVICE_LOCATION_TOPIC}`);
@@ -138,7 +138,7 @@ class MQTTIngestionService {
           // Subscribe to device status updates
           this.mqttClient!.subscribe('devices/+/status', { qos: 1 }, (err) => {
             if (err) {
-              logger.error('Failed to subscribe to device status topic:', err);
+              logger.error(err, 'Failed to subscribe to device status topic:');
             } else {
               logger.info('📡 Subscribed to topic: devices/+/status');
             }
@@ -160,7 +160,7 @@ class MQTTIngestionService {
         this.mqttClient.on('offline', () => logger.warn('⚠️ MQTT client offline'));
 
       } catch (error) {
-        logger.error('Failed to initialize MQTT:', error);
+        logger.error(error, 'Failed to initialize MQTT:',);
         reject(error);
       }
     });
@@ -174,7 +174,7 @@ class MQTTIngestionService {
 
       const payload = JSON.parse(message.toString());
       const topicParts = topic.split('/');
-      
+
       if (topicParts.length >= 3) {
         const deviceId = topicParts[1];
         const messageType = topicParts[2];
@@ -186,11 +186,11 @@ class MQTTIngestionService {
         }
       }
     } catch (error) {
-      logger.error('Error processing MQTT message:', {
+      logger.error({
         topic,
         error: error instanceof Error ? error.message : String(error),
         message: message.toString().substring(0, 500)
-      });
+      }, 'Error processing MQTT message:');
     }
   }
 
@@ -198,10 +198,10 @@ class MQTTIngestionService {
     try {
       // Add device_id to payload if not present
       const locationData = { ...payload, device_id: deviceId };
-      
+
       // Validate location data
       const validatedData = DeviceLocationSchema.parse(locationData);
-      
+
       // Enrich with processing timestamp
       const enrichedEvent = {
         ...validatedData,
@@ -213,22 +213,22 @@ class MQTTIngestionService {
       // Send to Kafka
       await this.publishToKafka(KAFKA_RAW_EVENTS_TOPIC, enrichedEvent, deviceId);
 
-      logger.debug('📍 Location update processed:', {
+      logger.debug({
         device_id: deviceId,
         lat: validatedData.latitude,
         lng: validatedData.longitude,
         accuracy: validatedData.accuracy
-      });
+      }, '📍 Location update processed:');
 
     } catch (error) {
       if (error instanceof z.ZodError) {
-        logger.warn('Invalid location data format:', {
+        logger.warn({
           device_id: deviceId,
           errors: error.errors,
           payload
-        });
+        }, 'Invalid location data format:');
       } else {
-        logger.error('Error processing location update:', error);
+        logger.error(error, 'Error processing location update:');
       }
     }
   }
@@ -237,10 +237,10 @@ class MQTTIngestionService {
     try {
       // Add device_id to payload if not present
       const statusData = { ...payload, device_id: deviceId };
-      
+
       // Validate status data
       const validatedData = DeviceStatusSchema.parse(statusData);
-      
+
       // Enrich with processing timestamp
       const enrichedEvent = {
         ...validatedData,
@@ -252,21 +252,21 @@ class MQTTIngestionService {
       // Send to Kafka
       await this.publishToKafka(KAFKA_RAW_EVENTS_TOPIC, enrichedEvent, deviceId);
 
-      logger.debug('📊 Status update processed:', {
+      logger.debug({
         device_id: deviceId,
         status: validatedData.status,
         battery: validatedData.battery_level
-      });
+      }, '📊 Status update processed:');
 
     } catch (error) {
       if (error instanceof z.ZodError) {
-        logger.warn('Invalid status data format:', {
+        logger.warn({
           device_id: deviceId,
           errors: error.errors,
           payload
-        });
+        }, 'Invalid status data format:');
       } else {
-        logger.error('Error processing status update:', error);
+        logger.error(error, 'Error processing status update:');
       }
     }
   }
@@ -286,22 +286,22 @@ class MQTTIngestionService {
         }]
       });
     } catch (error) {
-      logger.error('Failed to publish to Kafka:', {
+      logger.error({
         topic,
         key,
         error: error instanceof Error ? error.message : String(error)
-      });
+      }, 'Failed to publish to Kafka:');
       throw error;
     }
   }
 
   private handleMQTTError(error: Error): void {
-    logger.error('MQTT client error:', error);
+    logger.error(error, 'MQTT client error:',);
   }
 
   private setupGracefulShutdown(): void {
     const signals = ['SIGTERM', 'SIGINT'] as const;
-    
+
     signals.forEach(signal => {
       process.on(signal, async () => {
         logger.info(`📨 Received ${signal}, shutting down gracefully...`);
@@ -310,13 +310,13 @@ class MQTTIngestionService {
     });
 
     process.on('uncaughtException', async (error) => {
-      logger.error('Uncaught exception:', error);
+      logger.error(error, 'Uncaught exception:',);
       await this.shutdown();
       process.exit(1);
     });
 
     process.on('unhandledRejection', async (reason) => {
-      logger.error('Unhandled rejection:', reason instanceof Error ? reason.message : String(reason));
+      logger.error(reason, 'Unhandled rejection:');
       await this.shutdown();
       process.exit(1);
     });
@@ -360,9 +360,9 @@ class MQTTIngestionService {
       }
 
       logger.info('✅ MQTT Ingestion Service shutdown complete');
-      
+
     } catch (error) {
-      logger.error('Error during shutdown:', error instanceof Error ? error.message : String(error));
+      logger.error(error, 'Error during shutdown:');
     } finally {
       process.exit(0);
     }
@@ -372,16 +372,16 @@ class MQTTIngestionService {
 // Start the service
 async function main() {
   const service = new MQTTIngestionService();
-  
+
   try {
     await service.start();
   } catch (error) {
-    logger.error('Failed to start service:', error);
+    logger.error(error, 'Failed to start service:',);
     process.exit(1);
   }
 }
 
 main().catch(error => {
-  logger.error('Unhandled error in main:', error);
+  logger.error(error, 'Unhandled error in main:');
   process.exit(1);
 });
