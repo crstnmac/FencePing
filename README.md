@@ -116,7 +116,6 @@ JWT_SECRET=your-secret-key-change-in-production-at-least-32-characters-long
 JWT_EXPIRES_IN=7d
 
 # Maps (Optional - using MapLibre GL JS)
-NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=
 
 # API URLs
 NEXT_PUBLIC_API_URL=http://localhost:3001

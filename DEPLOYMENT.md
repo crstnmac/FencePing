@@ -46,7 +46,6 @@ The production environment requires several configuration values:
 - `JWT_SECRET` - JWT signing secret (256-bit)
 
 #### Required Manual Configuration
-- `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` - Mapbox API key for maps
 - `CORS_ORIGIN` - Your production domain (e.g., `https://your-domain.com`)
 - `NEXT_PUBLIC_API_URL` - Production API URL (e.g., `https://api.your-domain.com`)
 

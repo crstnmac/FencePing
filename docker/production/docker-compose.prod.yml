@@ -184,7 +184,6 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://${DOMAIN:-localhost}/api
-      NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
       TURBOPACK: 1
       NEXT_TELEMETRY_DISABLED: 1
     depends_on:
