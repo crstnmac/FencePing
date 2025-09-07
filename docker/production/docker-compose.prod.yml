@@ -9,8 +9,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-geofence}
       POSTGRES_USER: ${POSTGRES_USER:-geofence}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geofence_dev_password}
-      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
-      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_INITDB_ARGS: --auth-host=md5
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
