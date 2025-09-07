@@ -129,8 +129,8 @@ services:
       NOTION_CLIENT_SECRET: ${NOTION_CLIENT_SECRET}
       SLACK_CLIENT_ID: ${SLACK_CLIENT_ID}
       SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET}
-      API_BASE_URL: https://${DOMAIN:-0.0.0.0}
-      DASHBOARD_URL: https://${DOMAIN:-0.0.0.0}
+      API_BASE_URL: https://${DOMAIN:-localhost}
+      DASHBOARD_URL: https://${DOMAIN:-localhost}
     depends_on:
       postgres:
         condition: service_healthy
@@ -156,7 +156,7 @@ services:
       dockerfile: docker/production/Dockerfile.dashboard
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: https://${DOMAIN:-0.0.0.0}/api
+      NEXT_PUBLIC_API_URL: https://${DOMAIN:-localhost}/api
       NEXT_TELEMETRY_DISABLED: 1
       PORT: 3002
     depends_on:
