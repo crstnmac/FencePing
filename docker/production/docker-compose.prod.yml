@@ -16,8 +16,6 @@ services:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
     expose:
       - "5432"
-    ports:
-      - 5432
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -35,8 +33,6 @@ services:
       - redis_data:/data
     expose:
       - "6379"
-    ports:
-      - 6379
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -78,8 +74,6 @@ services:
       - kafka_data:/var/lib/kafka/data
     expose:
       - "29092"
-    ports:
-      - 29092
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -104,16 +98,18 @@ services:
       - "1883"   # MQTT
       - "8083"   # MQTT over WebSocket
       - "18083"  # Dashboard
-    ports:
-      - 1883
-      - 8083
-      - 18083
     volumes:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
     networks:
       - dokploy-network
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.geofence-mqtt-dashboard.rule=Host(`mqtt.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.geofence-mqtt-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.geofence-mqtt-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.services.geofence-mqtt-dashboard.loadbalancer.server.port=18083"
     healthcheck:
       test: ["CMD", "/opt/emqx/bin/emqx", "ping"]
       interval: 30s
@@ -151,8 +147,6 @@ services:
     networks:
       - dokploy-network
     restart: unless-stopped
-    ports:
-      - 3001
     expose:
       - "3001"
     labels:
@@ -182,8 +176,6 @@ services:
     networks:
       - dokploy-network
     restart: unless-stopped
-    ports:
-      - 3002
     expose:
       - "3002"
     labels:
@@ -282,8 +274,6 @@ services:
       - '--web.enable-lifecycle'
     expose:
       - "9090"
-    ports:
-      - 9090
     networks:
       - dokploy-network
     restart: unless-stopped
