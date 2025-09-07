@@ -184,6 +184,7 @@ services:
       KAFKA_BROKERS: kafka:9092
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       LOG_LEVEL: info
+      KAFKAJS_NO_PARTITIONER_WARNING: 1
     depends_on:
       postgres:
         condition: service_healthy
@@ -208,6 +209,7 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       KAFKA_BROKERS: kafka:9092
       LOG_LEVEL: info
+      KAFKAJS_NO_PARTITIONER_WARNING: 1
     depends_on:
       postgres:
         condition: service_healthy
@@ -230,6 +232,7 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password}@redis:6379
       KAFKA_BROKERS: kafka:9092
       LOG_LEVEL: info
+      KAFKAJS_NO_PARTITIONER_WARNING: 1
     depends_on:
       postgres:
         condition: service_healthy

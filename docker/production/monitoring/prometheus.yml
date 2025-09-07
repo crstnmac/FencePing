@@ -15,13 +15,13 @@ scrape_configs:
   - job_name: 'geofence-api'
     static_configs:
       - targets: ['api:3001']
-    metrics_path: '/api/metrics'
+    metrics_path: '/health'
     scrape_interval: 30s
 
   - job_name: 'geofence-dashboard'
     static_configs:
       - targets: ['dashboard:3002']
-    metrics_path: '/api/metrics'
+    metrics_path: '/'
     scrape_interval: 30s
 
   - job_name: 'postgres'
