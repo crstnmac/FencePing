@@ -25,6 +25,10 @@ const LoginSchema = z.object({
   password: z.string().min(1)
 });
 
+const RefreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required')
+});
+
 const JWT_SECRET = auth.JWT_SECRET;
 const JWT_EXPIRES_IN = auth.JWT_EXPIRES_IN;
 
@@ -316,19 +320,29 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
   } finally {  }
 });
 
-async function refreshUserSession(refreshToken: string, req: any): Promise<{ token: string; sessionId: string; userId: string; email: string; accountId: string } | null> {
+async function refreshUserSession(refreshToken: string, req: any): Promise<{ 
+  token: string; 
+  refreshToken: string; 
+  sessionId: string; 
+  userId: string; 
+  email: string; 
+  accountId: string;
+  accountName: string;
+  userName: string;
+} | null> {
   try {
     // Validate opaque refresh token against refresh_tokens table
     const refreshTokenHash = hashData(refreshToken);
     
-    // Check if refresh token exists and is valid
+    // Check if refresh token exists and is valid, get complete user/account info
     const refreshTokenCheck = await query(
       `SELECT rt.user_id, rt.session_id, rt.expires_at, 
-              u.email, a.id as account_id 
+              u.email, u.name as user_name,
+              a.id as account_id, a.name as account_name
        FROM refresh_tokens rt
        JOIN users u ON rt.user_id = u.id
        JOIN accounts a ON u.id = a.owner_id
-       WHERE rt.token_hash = $1 AND rt.expires_at > NOW()`,
+       WHERE rt.token_hash = $1 AND rt.expires_at > NOW() AND rt.revoked_at IS NULL`,
       [refreshTokenHash]
     );
 
@@ -337,7 +351,7 @@ async function refreshUserSession(refreshToken: string, req: any): Promise<{ tok
     }
 
     const refreshData = refreshTokenCheck.rows[0];
-    const { userId, sessionId, email, accountId } = refreshData;
+    const { user_id: userId, session_id: sessionId, email, user_name: userName, account_id: accountId, account_name: accountName } = refreshData;
     
     // Check if session is still valid
     const sessionCheck = await query(
@@ -374,9 +388,7 @@ async function refreshUserSession(refreshToken: string, req: any): Promise<{ tok
         email,
         accountId,
         sessionId,
-        type: 'access',
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + parseInt(JWT_EXPIRES_IN)
+        type: 'access'
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN } as SignOptions
@@ -398,19 +410,22 @@ async function refreshUserSession(refreshToken: string, req: any): Promise<{ tok
       ]
     );
 
-    // Update last activity
+    // Update session with new access token hash and last activity
+    const newTokenHash = hashData(newToken);
     await query(
-      'UPDATE user_sessions SET last_activity_at = NOW() WHERE id = $1',
-      [sessionId]
+      'UPDATE user_sessions SET token_hash = $1, last_activity_at = NOW() WHERE id = $2',
+      [newTokenHash, sessionId]
     );
 
     return { 
       token: newToken, 
+      refreshToken: newRefreshToken,
       sessionId, 
       userId, 
       email, 
       accountId,
-      refreshToken: newRefreshToken
+      accountName,
+      userName
     };
   } catch (error) {
     console.error('Token refresh verification error:', error);
@@ -419,16 +434,18 @@ async function refreshUserSession(refreshToken: string, req: any): Promise<{ tok
 }
 
 // Refresh access token using refresh token
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', validateBody(RefreshTokenSchema), async (req, res) => {
   // Using query() function for automatic connection management
 
   try {
     const { refreshToken } = req.body;
 
-    if (!refreshToken) {
-      return res.status(400).json({
+    // Rate limiting by IP for refresh token attempts
+    const identifier = `refresh:${req.ip}`;
+    if (isRateLimited(identifier, 20, 5 * 60 * 1000)) { // 20 attempts per 5 minutes
+      return res.status(429).json({
         success: false,
-        error: 'Refresh token required'
+        error: 'Too many refresh attempts. Please try again later.'
       });
     }
 
@@ -441,6 +458,9 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
+    // Clear rate limit on successful refresh
+    authAttempts.delete(identifier);
+
     res.json({
       success: true,
       data: {
@@ -449,10 +469,13 @@ router.post('/refresh', async (req, res) => {
         expires_in: JWT_EXPIRES_IN,
         user: {
           id: sessionData.userId,
+          name: sessionData.userName,
           email: sessionData.email
         },
         organization: {
-          id: sessionData.accountId
+          id: sessionData.accountId,
+          name: sessionData.accountName,
+          role: 'owner'
         }
       }
     });
@@ -464,6 +487,66 @@ router.post('/refresh', async (req, res) => {
       error: 'Internal server error'
     });
   } finally {  }
+});
+
+// Logout user and revoke refresh tokens
+router.post('/logout', requireAuth, async (req, res) => {
+  try {
+    const sessionId = req.user!.sessionId;
+    
+    // Revoke the current session
+    await query(
+      'UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1',
+      [sessionId]
+    );
+    
+    // Revoke all refresh tokens for this session
+    await query(
+      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE session_id = $1 AND revoked_at IS NULL',
+      [sessionId]
+    );
+    
+    res.json({
+      success: true,
+      message: 'Successfully logged out'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// Logout from all sessions
+router.post('/logout/all', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    
+    // Revoke all sessions for this user
+    await query(
+      'UPDATE user_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+      [userId]
+    );
+    
+    // Revoke all refresh tokens for this user
+    await query(
+      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+      [userId]
+    );
+    
+    res.json({
+      success: true,
+      message: 'Successfully logged out from all sessions'
+    });
+  } catch (error) {
+    console.error('Logout all error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
 });
 
 // Verify token and get user info
@@ -573,7 +656,7 @@ router.get('/callback/:provider', async (req, res) => {
       return res.redirect(`${urls.DASHBOARD_URL}/integrations?error=missing_code_or_state`);
     }
 
-    const result = await oauthManager.handleCallback(
+    await oauthManager.handleCallback(
       provider,
       code as string,
       state as string

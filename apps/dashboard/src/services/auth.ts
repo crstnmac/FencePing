@@ -56,6 +56,18 @@ export interface LogoutResponse {
   error?: string;
 }
 
+export interface RefreshTokenResponse {
+  success: boolean;
+  data: {
+    accessToken: string;
+    refreshToken: string;
+    expires_in: string;
+    user: User;
+    organization: Account;
+  };
+  error?: string;
+}
+
 // Custom error class with enhanced error handling
 export class AuthError extends Error {
   constructor(
@@ -85,6 +97,8 @@ export class AuthError extends Error {
 
 // Enhanced auth service with proper error handling and token management
 class AuthService {
+  private refreshPromise: Promise<RefreshTokenResponse> | null = null;
+
   private getHeaders(includeAuth = false): HeadersInit {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -98,6 +112,55 @@ class AuthService {
     }
 
     return headers;
+  }
+
+  // Enhanced fetch with automatic token refresh
+  async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    // Proactively refresh token if it's close to expiring
+    await this.ensureValidToken();
+
+    // First attempt with current token
+    let response = await fetch(url, {
+      ...options,
+      headers: {
+        ...this.getHeaders(true),
+        ...options.headers,
+      },
+    });
+
+    // If unauthorized and we have a refresh token, try to refresh
+    if (response.status === 401 && this.getStoredRefreshToken()) {
+      try {
+        // Use existing refresh promise or create new one to prevent multiple concurrent refreshes
+        if (!this.refreshPromise) {
+          this.refreshPromise = this.refreshToken();
+        }
+
+        await this.refreshPromise;
+        this.refreshPromise = null;
+
+        // Optional: Show success feedback (can be disabled in production)
+        if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+          console.log('✅ Token refreshed successfully');
+        }
+
+        // Retry the original request with new token
+        response = await fetch(url, {
+          ...options,
+          headers: {
+            ...this.getHeaders(true),
+            ...options.headers,
+          },
+        });
+      } catch (refreshError) {
+        // Refresh failed, clear tokens and throw original error
+        this.removeStoredToken();
+        this.refreshPromise = null;
+        throw new AuthError('Session expired. Please log in again.', 401);
+      }
+    }
+
+    return response;
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
@@ -172,11 +235,31 @@ class AuthService {
   }
 
   async me(): Promise<AuthMeResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-      headers: this.getHeaders(true),
+    const response = await this.authenticatedFetch(`${API_BASE_URL}/api/auth/me`);
+    return this.handleResponse<AuthMeResponse>(response);
+  }
+
+  async refreshToken(): Promise<RefreshTokenResponse> {
+    const refreshToken = this.getStoredRefreshToken();
+    
+    if (!refreshToken) {
+      throw new AuthError('No refresh token available', 401);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ refreshToken }),
     });
 
-    return this.handleResponse<AuthMeResponse>(response);
+    const data = await this.handleResponse<RefreshTokenResponse>(response);
+    
+    // Store new tokens on successful refresh
+    if (data.success && data.data.accessToken && data.data.refreshToken) {
+      this.setStoredToken(data.data.accessToken, data.data.refreshToken);
+    }
+
+    return data;
   }
 
   async logout(): Promise<LogoutResponse> {
@@ -199,9 +282,54 @@ class AuthService {
     }
   }
 
+  // Check if token is close to expiring (within 5 minutes)
+  private isTokenCloseToExpiry(): boolean {
+    const token = this.getStoredToken();
+    if (!token) return false;
+
+    try {
+      // Decode JWT token to check expiry (simple base64 decode)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expiryTime = payload.exp * 1000; // Convert to milliseconds
+      const currentTime = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+      
+      return (expiryTime - currentTime) < fiveMinutes;
+    } catch {
+      // If we can't decode the token, assume it's invalid
+      return true;
+    }
+  }
+
   // Check if user is authenticated (has valid token)
   isAuthenticated(): boolean {
     return !!this.getStoredToken();
+  }
+
+  // Proactively refresh token if it's close to expiring
+  async ensureValidToken(): Promise<void> {
+    if (!this.isAuthenticated()) {
+      throw new AuthError('No authentication token', 401);
+    }
+
+    if (this.isTokenCloseToExpiry() && this.getStoredRefreshToken()) {
+      try {
+        if (!this.refreshPromise) {
+          this.refreshPromise = this.refreshToken();
+        }
+        await this.refreshPromise;
+        this.refreshPromise = null;
+      } catch (error) {
+        // If refresh fails, clear tokens and throw
+        this.removeStoredToken();
+        throw new AuthError('Session expired. Please log in again.', 401);
+      }
+    }
+  }
+
+  // Public method for other services to use authenticated fetch
+  async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    return this.authenticatedFetch(url, options);
   }
 }
 

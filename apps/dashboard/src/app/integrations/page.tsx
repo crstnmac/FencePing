@@ -19,9 +19,12 @@ import {
   CheckCircle, 
   XCircle,
   AlertTriangle,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Settings,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { toast } from 'react-hot-toast';
 
 interface HeaderRow {
   key: string;
@@ -50,10 +53,10 @@ export default function IntegrationsPage() {
 
   const { user } = useAuth();
 
-  // Filter integrations
-  const filteredIntegrations = integrations.filter((integration: Integration) =>
-    integration.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    integration.url.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter integrations  
+  const filteredIntegrations = (integrations || []).filter((integration: Integration) =>
+    (integration.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (integration.url || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleToggleActive = async (integration: Integration) => {
@@ -62,9 +65,9 @@ export default function IntegrationsPage() {
         integrationId: integration.id,
         updates: { is_active: !integration.is_active }
       });
-      alert('Status updated successfully');
+      toast.success('Status updated successfully');
     } catch (err) {
-      alert('Failed to update status');
+      toast.error('Failed to update status');
       console.error('Failed to toggle integration:', err);
     }
   };
@@ -73,9 +76,9 @@ export default function IntegrationsPage() {
     if (window.confirm('Are you sure you want to delete this webhook integration? This action cannot be undone.')) {
       try {
         await deleteIntegrationMutation.mutateAsync(integrationId);
-        alert('Integration deleted successfully');
+        toast.success('Integration deleted successfully');
       } catch (err) {
-        alert('Failed to delete integration');
+        toast.error('Failed to delete integration');
         console.error('Failed to delete integration:', err);
       }
     }
@@ -138,16 +141,16 @@ export default function IntegrationsPage() {
           integrationId: editingIntegration.id,
           updates: payload
         });
-        alert('Integration updated successfully');
+        toast.success('Integration updated successfully');
       } else {
         await createIntegrationMutation.mutateAsync(payload);
-        alert('Integration created successfully');
+        toast.success('Integration created successfully');
       }
       setShowCreateModal(false);
       setEditingIntegration(null);
       setFormData({ automation_id: '', url: '', is_active: true, headers: [] });
     } catch (err) {
-      alert('Failed to save integration');
+      toast.error('Failed to save integration');
       console.error('Failed to save integration:', err);
     }
   };
@@ -179,6 +182,25 @@ export default function IntegrationsPage() {
       <Header title="Integrations" subtitle="Manage webhook integrations for automations" />
       
       <div className="flex-1 p-4 overflow-auto">
+        {/* Navigation Links */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Zap className="h-4 w-4 text-green-600" />
+              <span className="text-sm font-medium text-green-900">Automation Rules</span>
+            </div>
+            <a 
+              href="/automations" 
+              className="text-sm text-green-600 hover:text-green-800 underline"
+            >
+              ← Back to Automations
+            </a>
+          </div>
+          <p className="text-xs text-green-700 mt-1">
+            Create automation rules that trigger when devices enter or exit your geofences
+          </p>
+        </div>
+
         {/* Controls */}
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div className="relative flex-1">
@@ -250,12 +272,16 @@ export default function IntegrationsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        integration.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
+                      <button
+                        onClick={() => handleToggleActive(integration)}
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full cursor-pointer transition-colors ${
+                          integration.is_active ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'
+                        }`}
+                        title={`Click to ${integration.is_active ? 'deactivate' : 'activate'}`}
+                      >
                         {integration.is_active ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
                         {integration.is_active ? 'Active' : 'Inactive'}
-                      </span>
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {automations.find(a => a.id === integration.automation_id)?.name || 'Unknown'}
@@ -263,15 +289,16 @@ export default function IntegrationsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
                         <button
-                          onClick={() => handleToggleActive(integration)}
+                          onClick={() => handleEdit(integration)}
                           className="text-indigo-600 hover:text-indigo-900"
-                          title={integration.is_active ? 'Deactivate' : 'Activate'}
+                          title="Edit"
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(integration.id)}
                           className="text-red-600 hover:text-red-900"
+                          title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

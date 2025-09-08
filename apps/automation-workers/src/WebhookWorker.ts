@@ -85,25 +85,12 @@ export class WebhookWorker {
         device: geofenceEvent.deviceName
       }, 'Processing webhook delivery');
 
-      // Process based on automation type
+      // Only support webhook for now
       let result: any;
-      switch (automation.kind) {
-        case 'slack':
-          result = await this.deliverSlackWebhook(automation, geofenceEvent);
-          break;
-        case 'notion':
-          result = await this.deliverNotionWebhook(automation, geofenceEvent);
-          break;
-        case 'sheets':
-          result = await this.deliverSheetsWebhook(automation, geofenceEvent);
-          break;
-        case 'whatsapp':
-          result = await this.deliverWhatsAppWebhook(automation, geofenceEvent);
-          break;
-        case 'webhook':
-        default:
-          result = await this.deliverGenericWebhook(automation, geofenceEvent);
-          break;
+      if (automation.kind === 'webhook') {
+        result = await this.deliverGenericWebhook(automation, geofenceEvent);
+      } else {
+        throw new Error(`Integration type ${automation.kind} not supported yet`);
       }
 
       // Update delivery status to success
@@ -114,8 +101,8 @@ export class WebhookWorker {
 
       // Update delivery status to failed and increment attempt count
       await this.updateDeliveryStatus(
-        jobData.deliveryId, 
-        'failed', 
+        jobData.deliveryId,
+        'failed',
         error instanceof Error ? error.message : 'Unknown error',
         null
       );
@@ -313,17 +300,17 @@ export class WebhookWorker {
     };
 
     // Example for Twilio
-    const response = await axios.post('https://api.twilio.com/2010-04-01/Accounts/YOUR_ACCOUNT/Messages.json', 
+    const response = await axios.post('https://api.twilio.com/2010-04-01/Accounts/YOUR_ACCOUNT/Messages.json',
       new URLSearchParams({
         To: phone_number,
         From: 'whatsapp:+14155238886',
         Body: message
       }), {
-        auth: {
-          username: 'YOUR_ACCOUNT_SID',
-          password: api_key
-        }
+      auth: {
+        username: 'YOUR_ACCOUNT_SID',
+        password: api_key
       }
+    }
     );
 
     return { status: response.status, data: response.data };
@@ -406,8 +393,8 @@ export class WebhookWorker {
   }
 
   private async updateDeliveryStatus(
-    deliveryId: string, 
-    status: 'success' | 'failed', 
+    deliveryId: string,
+    status: 'success' | 'failed',
     error: string | null,
     responseData: any
   ): Promise<void> {
@@ -422,7 +409,7 @@ export class WebhookWorker {
       `, [deliveryId, status, error]);
 
       // If failed and max retries exceeded, move to DLQ (this is handled by database trigger)
-      
+
     } catch (dbError) {
       this.logger.error({ dbError, deliveryId }, 'Failed to update delivery status');
     }

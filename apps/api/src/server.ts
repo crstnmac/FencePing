@@ -1,4 +1,6 @@
 import express from 'express';
+import { createServer } from 'http';
+import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -16,7 +18,7 @@ import deviceGroupsRouter from './routes/deviceGroups.js';
 import { geofenceRoutes } from './routes/geofences.js';
 import { eventRoutes } from './routes/events.js';
 import { integrationRoutes } from './routes/integrations.js';
-import { automationRoutes } from './routes/automations.js';
+import { automationRoutes, automationRulesRoutes } from './routes/automations.js';
 import { settingsRoutes } from './routes/settings.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { apiKeyRoutes } from './routes/apiKeys.js';
@@ -30,6 +32,16 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3002' // Frontend fallback port
+    ],
+    methods: ["GET", "POST"]
+  }
+});
 const PORT = process.env.PORT || 3001;
 
 // Trust proxy for production deployment behind reverse proxy
@@ -98,6 +110,23 @@ app.get('/admin/connection-pool', (req, res) => {
   getConnectionPoolStatus(req, res);
 });
 
+// WebSocket for real-time delivery updates
+io.on('connection', (socket: Socket) => {
+  console.log('Client connected to WebSocket');
+
+  socket.on('join-room', (roomId: string) => {
+    socket.join(roomId);
+    console.log(`Client joined room: ${roomId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected from WebSocket');
+  });
+});
+
+// Export io for use in routes
+export { io };
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -109,6 +138,7 @@ app.use('/api/geofences', geofenceRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/integrations', integrationRoutes);
 app.use('/api/automations', automationRoutes);
+app.use('/api/automation-rules', automationRulesRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/settings', settingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
@@ -131,8 +161,8 @@ async function startServer() {
       // Don't fail server startup if Kafka fails
     });
 
-    const server = app.listen(PORT, () => {
-      console.log(`🚀 API Server running on port ${PORT}`);
+    server.listen(PORT, () => {
+      console.log(`🚀 API Server with Socket.IO running on port ${PORT}`);
     });
 
     // Graceful shutdown

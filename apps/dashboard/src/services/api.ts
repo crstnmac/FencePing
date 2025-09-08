@@ -1,3 +1,5 @@
+import { authService } from './auth';
+
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 class ApiError extends Error {
@@ -7,42 +9,65 @@ class ApiError extends Error {
   }
 }
 
-// Helper function to make authenticated API calls
+// Helper function to make authenticated API calls with automatic token refresh
 async function apiRequest<T>(
-  endpoint: string, 
+  endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  console.log('🔑 API Request:', endpoint, 'Token exists:', !!token);
-  
+  console.log('🔑 API Request:', endpoint);
+
   // In development, provide organization header fallback for backwards compatibility
   const isDevelopment = process.env.NODE_ENV === 'development';
+  const token = authService.getStoredToken();
 
-  // Build a Headers instance to safely merge different possible HeadersInit types (Headers, string[][], Record<string,string>)
-  const headers = new Headers(options.headers as HeadersInit);
-  headers.set('Content-Type', 'application/json');
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-    console.log('🔑 Added Authorization header');
+  try {
+    let response: Response;
+    
+    if (token) {
+      // Use authenticated fetch with automatic token refresh
+      response = await authService.makeAuthenticatedRequest(`${apiUrl}${endpoint}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+    } else {
+      // Unauthenticated request
+      const headers = new Headers(options.headers as HeadersInit);
+      headers.set('Content-Type', 'application/json');
+      
+      if (isDevelopment) {
+        headers.set('x-dev-mode', 'true');
+        console.log('🔑 Added dev-mode header');
+      }
+
+      response = await fetch(`${apiUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new ApiError(data.error || 'Request failed', response.status);
+    }
+
+    return data;
+  } catch (error) {
+    // If it's an auth error from token refresh, let it bubble up
+    if (error instanceof Error && error.message.includes('Session expired')) {
+      throw error;
+    }
+    
+    // Handle other API errors
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    throw new ApiError('Network error occurred', 0);
   }
-  if (isDevelopment && !token) {
-    headers.set('x-dev-mode', 'true');
-    console.log('🔑 Added dev-mode header');
-  }
-
-  const response = await fetch(`${apiUrl}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    // Don't automatically clear tokens or redirect - let the auth context handle this
-    throw new ApiError(data.error || 'Request failed', response.status);
-  }
-
-  return data;
 }
 
 // Dashboard Statistics Types
@@ -311,9 +336,30 @@ export interface Automation {
   id: string;
   name: string;
   description?: string;
-  is_active: boolean;
+  kind: 'notion' | 'sheets' | 'slack' | 'webhook' | 'whatsapp';
+  config: Record<string, any>;
+  enabled: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface Delivery {
+  id: string;
+  automation_id: string;
+  status: 'pending' | 'success' | 'failed' | 'disabled';
+  created_at: string;
+  updated_at: string;
+  payload?: any;
+  error?: string;
+}
+
+export interface DeliveriesResponse {
+  data: Delivery[];
+  pagination?: {
+    total: number;
+    limit: number;
+    offset: number;
+  };
 }
 
 // Automation Rule Types
@@ -330,7 +376,7 @@ export interface AutomationRule {
   enabled: boolean;
   created_at: string;
   updated_at: string;
-  
+
   // Populated relations
   geofence?: Geofence;
   device?: Device;
@@ -405,12 +451,12 @@ export const dashboardService = {
 
     // Calculate today's events
     const today = new Date().toISOString().split('T')[0];
-    const todayEvents = events.filter(event => 
+    const todayEvents = events.filter(event =>
       event.timestamp.startsWith(today)
     ).length;
 
     // Calculate success rate (simplified for now)
-    const automationSuccess = events.length > 0 ? 
+    const automationSuccess = events.length > 0 ?
       ((events.length - Math.floor(events.length * 0.02)) / events.length) * 100 : 100;
 
     return {
@@ -491,27 +537,27 @@ export const deviceService = {
   },
 
   // Get pairing status
-  async getPairingStatus(code: string): Promise<{ 
+  async getPairingStatus(code: string): Promise<{
     success: boolean;
-    data: { 
+    data: {
       status: 'valid' | 'expired' | 'used';
       pairingCode: string;
       expiresAt: string;
       usedAt?: string;
       isValid: boolean;
       accountId: string;
-    } 
+    }
   }> {
-    const response = await apiRequest<{ 
+    const response = await apiRequest<{
       success: boolean;
-      data: { 
+      data: {
         status: 'valid' | 'expired' | 'used';
         pairingCode: string;
         expiresAt: string;
         usedAt?: string;
         isValid: boolean;
         accountId: string;
-      } 
+      }
     }>(`/api/devices/pairing/status/${code}`);
     return response;
   },
@@ -556,12 +602,12 @@ export const deviceService = {
 
   // Device Location History
   async getDeviceLocationHistory(
-    deviceId: string, 
-    params: { 
-      page?: number; 
-      limit?: number; 
-      start_date?: string; 
-      end_date?: string; 
+    deviceId: string,
+    params: {
+      page?: number;
+      limit?: number;
+      start_date?: string;
+      end_date?: string;
     } = {}
   ): Promise<DeviceLocationHistoryResponse> {
     const searchParams = new URLSearchParams();
@@ -745,7 +791,7 @@ export const eventService = {
     to_date?: string;
   } = {}): Promise<EventsResponse> {
     const searchParams = new URLSearchParams();
-    
+
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined) {
         searchParams.append(key, String(value));
@@ -754,7 +800,7 @@ export const eventService = {
 
     const queryString = searchParams.toString();
     const endpoint = `/api/events${queryString ? `?${queryString}` : ''}`;
-    
+
     return await apiRequest<EventsResponse>(endpoint);
   },
 
@@ -779,7 +825,7 @@ export const geofenceService = {
     console.log('🔍 Fetching geofences from API...');
     const response = await apiRequest<{ data: Geofence[]; total: number }>('/api/geofences');
     console.log('🔍 Geofences API response:', response);
-    
+
     // Validate and normalize the response data
     const geofences = (response.data || []).map((geofence, index) => {
       // Validate essential fields
@@ -787,12 +833,12 @@ export const geofenceService = {
         console.warn(`🔍 Geofence at index ${index} missing ID:`, geofence);
         return null;
       }
-      
+
       if (!geofence.geometry || !geofence.geometry.coordinates) {
         console.warn(`🔍 Geofence "${geofence.name}" missing valid geometry:`, geofence);
         return null;
       }
-      
+
       // Normalize the geofence data
       return {
         ...geofence,
@@ -803,7 +849,7 @@ export const geofenceService = {
         metadata: geofence.metadata || {}
       };
     }).filter(g => g !== null) as Geofence[];
-    
+
     console.log('🔍 Normalized geofences:', geofences.length, 'valid geofences');
     return geofences;
   },
@@ -851,6 +897,37 @@ export const automationService = {
       // Return empty array if automations endpoint doesn't exist yet
       console.warn('Automations endpoint not available:', error);
       return [];
+    }
+  },
+
+  // Test automation
+  async testAutomation(automationId: string): Promise<{ message: string }> {
+    const response = await apiRequest<{ message: string }>(`/api/automations/${automationId}/test`, {
+      method: 'POST',
+    });
+    return response;
+  },
+
+  // Get deliveries
+  async getDeliveries(params: { limit?: number; offset?: number; automation_id?: string } = {}): Promise<DeliveriesResponse> {
+    const searchParams = new URLSearchParams();
+    if (params.limit) searchParams.append('limit', params.limit.toString());
+    if (params.offset) searchParams.append('offset', params.offset.toString());
+    if (params.automation_id) searchParams.append('automation_id', params.automation_id);
+    const queryString = searchParams.toString();
+    const endpoint = `/api/automations/deliveries${queryString ? `?${queryString}` : ''}`;
+    const response = await apiRequest<DeliveriesResponse>(endpoint);
+    return response;
+  },
+
+  // Get single automation
+  async getAutomation(automationId: string): Promise<Automation> {
+    try {
+      const response = await apiRequest<{ data: Automation }>(`/api/automations/${automationId}`);
+      return response.data;
+    } catch (error) {
+      console.warn('Automation get endpoint not available:', error);
+      throw error;
     }
   },
 
@@ -1001,22 +1078,27 @@ export const integrationService = {
 
   // Get specific webhook integration
   async getIntegration(integrationId: string): Promise<Integration> {
-    const response = await apiRequest<{ data: Integration }>(`/api/integrations/webhook/${integrationId}`);
+    const response = await apiRequest<{ data: Integration }>(`/api/integrations/${integrationId}`);
     return response.data;
   },
 
   // Create webhook integration
   async createIntegration(webhookData: { automation_id: string; url: string; headers?: Record<string, string>; is_active?: boolean }): Promise<Integration> {
-    const response = await apiRequest<{ data: Integration }>('/api/integrations/webhook', {
+    const payload = {
+      automationId: webhookData.automation_id,
+      url: webhookData.url,
+      headers: webhookData.headers
+    };
+    const response = await apiRequest<{ data: Integration }>('/api/integrations', {
       method: 'POST',
-      body: JSON.stringify(webhookData),
+      body: JSON.stringify(payload),
     });
     return response.data;
   },
 
   // Update webhook integration
   async updateIntegration(integrationId: string, updates: Partial<Integration>): Promise<Integration> {
-    const response = await apiRequest<{ data: Integration }>(`/api/integrations/webhook/${integrationId}`, {
+    const response = await apiRequest<{ data: Integration }>(`/api/integrations/${integrationId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -1025,7 +1107,7 @@ export const integrationService = {
 
   // Delete webhook integration
   async deleteIntegration(integrationId: string): Promise<void> {
-    await apiRequest(`/api/integrations/webhook/${integrationId}`, {
+    await apiRequest(`/api/integrations/${integrationId}`, {
       method: 'DELETE',
     });
   },

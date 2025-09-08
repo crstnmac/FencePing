@@ -29,6 +29,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.2",
+    "react-hot-toast": "^2.6.0",
+    "socket.io-client": "^4.8.1",
     "sonner": "^1.7.0",
     "tailwind-merge": "^2.5.4",
     "terra-draw": "^1.13.0",
@@ -39,6 +41,7 @@
   "devDependencies": {
     "@swc/cli": "^0.7.8",
     "@swc/core": "^1.13.5",
+    "@tailwindcss/postcss": "^4.1.12",
     "@tailwindcss/typography": "^0.5.15",
     "@tanstack/react-query-devtools": "^5.85.6",
     "@types/mapbox__mapbox-gl-draw": "^1.4.6",
@@ -48,7 +51,6 @@
     "eslint": "^9.13.0",
     "eslint-config-next": "^15.0.3",
     "tailwindcss": "^4.1.12",
-    "@tailwindcss/postcss": "^4.1.12",
     "typescript": "^5.6.3"
   }
 }

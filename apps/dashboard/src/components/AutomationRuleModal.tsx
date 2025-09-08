@@ -1,23 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  X, 
-  MapPin, 
-  Smartphone, 
-  Zap, 
-  Clock, 
+import {
+  X,
+  MapPin,
+  Smartphone,
+  Zap,
+  Clock,
   Target,
   Users
 } from 'lucide-react';
-import { 
-  useDevices, 
-  useGeofences, 
-  useAutomations, 
+import {
+  useDevices,
+  useGeofences,
+  useAutomations,
+  useAutomation,
   useCreateAutomationRule,
   useUpdateAutomationRule,
+  useUpdateAutomation,
   type AutomationRule,
-  type CreateAutomationRuleRequest
+  type CreateAutomationRuleRequest,
+  type Automation
 } from '../hooks/useApi';
 
 interface AutomationRuleModalProps {
@@ -40,9 +43,10 @@ export function AutomationRuleModal({
   const { data: devices = [] } = useDevices();
   const { data: geofences = [] } = useGeofences();
   const { data: automations = [] } = useAutomations();
-  
+
   const createRuleMutation = useCreateAutomationRule();
   const updateRuleMutation = useUpdateAutomationRule();
+  const updateAutomationMutation = useUpdateAutomation();
 
   const [formData, setFormData] = useState<CreateAutomationRuleRequest>({
     name: '',
@@ -55,7 +59,19 @@ export function AutomationRuleModal({
     enabled: true,
   });
 
+  const selectedAutomationQuery = useAutomation(formData.automation_id);
+  const selectedAutomation = selectedAutomationQuery.data;
+
+  const [config, setConfig] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (selectedAutomation?.config) {
+      setConfig(selectedAutomation.config);
+    } else {
+      setConfig({});
+    }
+  }, [selectedAutomation]);
 
   // Reset form when modal opens/closes or rule changes
   useEffect(() => {
@@ -118,14 +134,22 @@ export function AutomationRuleModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     try {
+      // Update automation config if changed
+      if (formData.automation_id && Object.keys(config).length > 0 && selectedAutomation) {
+        await updateAutomationMutation.mutateAsync({
+          automationId: formData.automation_id,
+          updates: { config }
+        });
+      }
+
       let result: AutomationRule;
-      
+
       if (rule) {
         // Update existing rule
         result = await updateRuleMutation.mutateAsync({
@@ -197,9 +221,8 @@ export function AutomationRuleModal({
               type="text"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.name ? 'border-red-500' : 'border-gray-300'
+                }`}
               placeholder="e.g., Office Entry Alert"
             />
             {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
@@ -214,9 +237,8 @@ export function AutomationRuleModal({
             <select
               value={formData.geofence_id}
               onChange={(e) => setFormData(prev => ({ ...prev, geofence_id: e.target.value }))}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.geofence_id ? 'border-red-500' : 'border-gray-300'
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.geofence_id ? 'border-red-500' : 'border-gray-300'
+                }`}
             >
               <option value="">Select a geofence...</option>
               {geofences.map(geofence => (
@@ -236,9 +258,9 @@ export function AutomationRuleModal({
             </label>
             <select
               value={formData.device_id || ''}
-              onChange={(e) => setFormData(prev => ({ 
-                ...prev, 
-                device_id: e.target.value || undefined 
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                device_id: e.target.value || undefined
               }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -294,13 +316,12 @@ export function AutomationRuleModal({
                 type="number"
                 min="1"
                 value={formData.min_dwell_seconds || ''}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  min_dwell_seconds: parseInt(e.target.value) || undefined 
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  min_dwell_seconds: parseInt(e.target.value) || undefined
                 }))}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.min_dwell_seconds ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.min_dwell_seconds ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="300"
               />
               {errors.min_dwell_seconds && <p className="mt-1 text-sm text-red-600">{errors.min_dwell_seconds}</p>}
@@ -319,9 +340,8 @@ export function AutomationRuleModal({
             <select
               value={formData.automation_id}
               onChange={(e) => setFormData(prev => ({ ...prev, automation_id: e.target.value }))}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.automation_id ? 'border-red-500' : 'border-gray-300'
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.automation_id ? 'border-red-500' : 'border-gray-300'
+                }`}
             >
               <option value="">Select an automation...</option>
               {automations.map(automation => (
@@ -337,6 +357,61 @@ export function AutomationRuleModal({
               </p>
             )}
           </div>
+
+          {/* Automation Config - Conditional based on kind */}
+          {formData.automation_id && selectedAutomation && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Automation Configuration
+              </label>
+              <div className="bg-gray-50 p-3 rounded-md space-y-3">
+                {selectedAutomation.kind === 'webhook' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Webhook URL</label>
+                      <input
+                        type="url"
+                        value={config.url || ''}
+                        onChange={(e) => setConfig(prev => ({ ...prev, url: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Headers (JSON)</label>
+                      <textarea
+                        rows={3}
+                        value={JSON.stringify(config.headers || {}, null, 2)}
+                        onChange={(e) => {
+                          try {
+                            const parsed = JSON.parse(e.target.value);
+                            setConfig(prev => ({ ...prev, headers: parsed }));
+                          } catch { }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                      />
+                    </div>
+                  </>
+                )}
+                {selectedAutomation.kind === 'notion' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Database ID</label>
+                    <input
+                      type="text"
+                      value={config.database_id || ''}
+                      onChange={(e) => setConfig(prev => ({ ...prev, database_id: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                )}
+                {/* Add similar conditional blocks for other kinds: sheets, slack, whatsapp */}
+                {['sheets', 'slack', 'whatsapp'].includes(selectedAutomation.kind) && (
+                  <div className="text-xs text-gray-500">
+                    Configuration for {selectedAutomation.kind} is set in automation settings.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Enable/Disable */}
           <div className="flex items-center space-x-2">

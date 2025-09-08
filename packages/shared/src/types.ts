@@ -40,7 +40,7 @@ export const AutomationRuleSchema = z.object({
   triggerType: z.enum(['enter', 'exit', 'dwell']),
   dwellTimeMinutes: z.number().min(0).default(0),
   actionConfig: z.record(z.unknown()),
-  isActive: z.boolean().default(true)
+  enabled: z.boolean().default(true)
 });
 
 export const IntegrationSchema = z.object({
@@ -50,7 +50,7 @@ export const IntegrationSchema = z.object({
   accountId: z.string().uuid(),
   config: z.record(z.unknown()),
   credentials: z.record(z.unknown()),
-  isActive: z.boolean().default(true)
+  enabled: z.boolean().default(true)
 });
 
 export const EventSchema = z.object({

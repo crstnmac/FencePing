@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { Header } from '../../components/Header';
-import { useAutomations, useUpdateAutomation, useDeleteAutomation } from '../../hooks/useApi';
-import { 
-  Plus, 
-  Search, 
-  Edit2, 
-  Trash2, 
+import { toast } from 'react-hot-toast';
+import {useTestAutomation, useDeliveries, useAutomationRules, useToggleAutomationRule, useDeleteAutomationRule } from '../../hooks/useApi';
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
   Play,
   Pause,
   Zap,
@@ -20,26 +21,30 @@ import {
   Filter,
   Settings
 } from 'lucide-react';
+import { AutomationRuleModal } from '@/components/AutomationRuleModal';
+import { useSocket } from '../../providers/SocketProvider';
 
 export default function AutomationsPage() {
   // API state management with React Query
-  const { data: automations = [], isLoading, error, refetch } = useAutomations();
-  const updateAutomationMutation = useUpdateAutomation();
-  const deleteAutomationMutation = useDeleteAutomation();
+  const { data: rules = [], isLoading, error, refetch } = useAutomationRules();
+  const { socket, isConnected } = useSocket();
+  const toggleRuleMutation = useToggleAutomationRule();
+  const deleteRuleMutation = useDeleteAutomationRule();
+  const testMutation = useTestAutomation();
+  const { data: deliveries = [] } = useDeliveries({ limit: 100 });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [filterTrigger, setFilterTrigger] = useState<'all' | 'enter' | 'exit' | 'dwell'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedAutomation, setSelectedAutomation] = useState<any>(null);
+  const [selectedRule, setSelectedRule] = useState<any>(null);
 
-  const filteredAutomations = automations.filter(automation => {
-    const matchesSearch = automation.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (automation.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || 
-                         (filterStatus === 'active' && automation.is_active) ||
-                         (filterStatus === 'inactive' && !automation.is_active);
-    const matchesTrigger = true; // API doesn't have trigger type in the basic automation structure
+  const filteredRules = rules.filter(rule => {
+    const matchesSearch = rule.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' ||
+      (filterStatus === 'active' && rule.enabled) ||
+      (filterStatus === 'inactive' && !rule.enabled);
+    const matchesTrigger = filterTrigger === 'all' || rule.on_events.includes(filterTrigger);
     return matchesSearch && matchesStatus && matchesTrigger;
   });
 
@@ -54,49 +59,60 @@ export default function AutomationsPage() {
     return 'Recently';
   };
 
-  const toggleAutomationStatus = async (id: string) => {
+  const toggleRuleStatus = async (id: string) => {
     try {
-      const automation = automations.find(a => a.id === id);
-      if (automation) {
-        await updateAutomationMutation.mutateAsync({
-          automationId: id,
-          updates: { is_active: !automation.is_active }
+      const rule = rules.find(r => r.id === id);
+      if (rule) {
+        await toggleRuleMutation.mutateAsync({
+          ruleId: id,
+          enabled: !rule.enabled
         });
+        toast.success('Rule status updated');
       }
     } catch (err) {
-      console.error('Failed to toggle automation status:', err);
-      alert('Failed to update automation status');
+      console.error('Failed to toggle rule status:', err);
+      toast.error('Failed to update rule status');
     }
   };
 
-  const handleEdit = (automation: any) => {
-    setSelectedAutomation(automation);
+  const handleEdit = (rule: any) => {
+    setSelectedRule(rule);
     setShowCreateModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this automation?')) {
+    if (window.confirm('Are you sure you want to delete this rule?')) {
       try {
-        await deleteAutomationMutation.mutateAsync(id);
+        await deleteRuleMutation.mutateAsync(id);
+        toast.success('Rule deleted successfully');
       } catch (err) {
-        console.error('Failed to delete automation:', err);
-        alert('Failed to delete automation');
+        console.error('Failed to delete rule:', err);
+        toast.error('Failed to delete rule');
       }
     }
   };
 
-  const handleTest = (automation: any) => {
-    console.log('Testing automation:', automation.id);
-    // In real app, would trigger a test execution
-    alert('Test functionality would be implemented here');
+  const handleTest = (rule: any) => {
+    try {
+      testMutation.mutate(rule.automation_id, {
+        onSuccess: () => {
+          toast.success('Test delivery sent');
+        },
+        onError: () => {
+          toast.error('Failed to send test');
+        }
+      });
+    } catch (err) {
+      toast.error('Failed to test rule');
+    }
   };
 
   // Error handling
   if (error) {
     return (
       <div className="flex flex-col h-full">
-        <Header 
-          title="Automations" 
+        <Header
+          title="Automations"
           subtitle="Manage your geofence automation rules and webhooks"
         />
         <div className="flex-1 flex items-center justify-center p-6">
@@ -118,12 +134,31 @@ export default function AutomationsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header 
-        title="Automations" 
+      <Header
+        title="Automations"
         subtitle="Manage your geofence automation rules and webhooks"
       />
-      
+
       <div className="flex-1 overflow-auto p-3">
+        {/* Navigation Links */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Settings className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-900">Integration Setup</span>
+            </div>
+            <a 
+              href="/integrations" 
+              className="text-sm text-blue-600 hover:text-blue-800 underline"
+            >
+              Manage Integrations →
+            </a>
+          </div>
+          <p className="text-xs text-blue-700 mt-1">
+            Configure webhook endpoints and third-party integrations for your automations
+          </p>
+        </div>
+
         {/* Header Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-3">
           <div className="flex flex-col sm:flex-row gap-2">
@@ -137,7 +172,7 @@ export default function AutomationsPage() {
                 className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
               />
             </div>
-            
+
             <div className="flex items-center space-x-1.5">
               <Filter className="h-3.5 w-3.5 text-gray-500" />
               <select
@@ -149,7 +184,7 @@ export default function AutomationsPage() {
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-              
+
               <select
                 value={filterTrigger}
                 onChange={(e) => setFilterTrigger((e.target as HTMLSelectElement).value as any)}
@@ -162,16 +197,16 @@ export default function AutomationsPage() {
               </select>
             </div>
           </div>
-          
+
           <button
             onClick={() => {
-              setSelectedAutomation(null);
+              setSelectedRule(null);
               setShowCreateModal(true);
             }}
             className="flex items-center gap-1.5 bg-blue-600 text-white px-2.5 py-1.5 rounded-md hover:bg-blue-700 transition-all duration-200 text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
-            Create Automation
+            Create Rule
           </button>
         </div>
 
@@ -185,7 +220,7 @@ export default function AutomationsPage() {
               <div className="ml-3">
                 <p className="text-xs font-medium text-gray-600">Total Rules</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {isLoading ? '...' : automations.length}
+                  {isLoading ? '...' : rules.length}
                 </p>
               </div>
             </div>
@@ -199,7 +234,7 @@ export default function AutomationsPage() {
               <div className="ml-3">
                 <p className="text-xs font-medium text-gray-600">Active</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {isLoading ? '...' : automations.filter(a => a.is_active).length}
+                  {isLoading ? '...' : rules.filter(r => r.enabled).length}
                 </p>
               </div>
             </div>
@@ -213,7 +248,7 @@ export default function AutomationsPage() {
               <div className="ml-3">
                 <p className="text-xs font-medium text-gray-600">Inactive</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {isLoading ? '...' : automations.filter(a => !a.is_active).length}
+                  {isLoading ? '...' : rules.filter(r => !r.enabled).length}
                 </p>
               </div>
             </div>
@@ -227,7 +262,7 @@ export default function AutomationsPage() {
               <div className="ml-3">
                 <p className="text-xs font-medium text-gray-600">Total Created</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {isLoading ? '...' : automations.length}
+                  {isLoading ? '...' : rules.length}
                 </p>
               </div>
             </div>
@@ -239,7 +274,7 @@ export default function AutomationsPage() {
           <div className="px-4 py-2.5 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900">Automation Rules</h3>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
@@ -257,7 +292,7 @@ export default function AutomationsPage() {
                     Status
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Performance
+                    Deliveries
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last Triggered
@@ -302,22 +337,22 @@ export default function AutomationsPage() {
                       </td>
                     </tr>
                   ))
-                ) : filteredAutomations.length === 0 ? (
+                ) : filteredRules.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-6 text-center">
                       <Zap className="h-6 w-6 text-gray-400 mx-auto mb-2" />
                       <p className="text-xs text-gray-500">
-                        {searchTerm ? 'No automations match your search' : 'No automations found'}
+                        {searchTerm ? 'No rules match your search' : 'No rules found'}
                       </p>
                     </td>
                   </tr>
                 ) : (
-                  filteredAutomations.map((automation) => (
-                    <tr key={automation.id} className="hover:bg-gray-50 transition-all duration-200">
+                  filteredRules.map((rule) => (
+                    <tr key={rule.id} className="hover:bg-gray-50 transition-all duration-200">
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{automation.name}</div>
-                          <div className="text-xs text-gray-500">{automation.description || 'No description'}</div>
+                          <div className="text-sm font-medium text-gray-900">{rule.name}</div>
+                          <div className="text-xs text-gray-500">{(rule as any).description || 'No description'}</div>
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -327,64 +362,74 @@ export default function AutomationsPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-xs text-gray-900">
-                          N/A
+                          <a 
+                            href="/integrations" 
+                            className="text-blue-600 hover:text-blue-800 underline"
+                            title="Manage integrations"
+                          >
+                            Manage
+                          </a>
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          automation.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {automation.is_active ? (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${rule.enabled
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                          }`}>
+                          {rule.enabled ? (
                             <Play className="w-2.5 h-2.5 mr-1" />
                           ) : (
                             <Pause className="w-2.5 h-2.5 mr-1" />
                           )}
-                          {automation.is_active ? 'Active' : 'Paused'}
+                          {rule.enabled ? 'Active' : 'Paused'}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-xs text-gray-900">
-                          N/A
+                          {(() => {
+                            const deliveryArray = Array.isArray(deliveries) ? deliveries : [];
+                            const ruleDeliveries = deliveryArray.filter((d: any) => d.automation_id === rule.automation_id);
+                            const lastDelivery = ruleDeliveries[ruleDeliveries.length - 1];
+                            return lastDelivery ? (lastDelivery as any).status : 'No deliveries';
+                          })()}
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
-                        {formatLastTriggered(automation.updated_at)}
+                        {formatLastTriggered(rule.updated_at)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
                         <div className="flex items-center space-x-1.5">
                           <button
-                            onClick={() => toggleAutomationStatus(automation.id)}
-                            disabled={updateAutomationMutation.isPending}
-                            className={`${
-                              automation.is_active
-                                ? 'text-yellow-600 hover:text-yellow-900'
-                                : 'text-green-600 hover:text-green-900'
-                            } disabled:opacity-50 transition-all duration-200`}
-                            title={automation.is_active ? 'Pause' : 'Activate'}
+                            onClick={() => toggleRuleStatus(rule.id)}
+                            disabled={toggleRuleMutation.isPending}
+                            className={`${rule.enabled
+                              ? 'text-yellow-600 hover:text-yellow-900'
+                              : 'text-green-600 hover:text-green-900'
+                              } disabled:opacity-50 transition-all duration-200`}
+                            title={rule.enabled ? 'Pause' : 'Activate'}
                           >
-                            {automation.is_active ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                            {rule.enabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                           </button>
                           <button
-                            onClick={() => handleTest(automation)}
-                            className="text-blue-600 hover:text-blue-900 transition-all duration-200"
-                            title="Test automation"
+                            onClick={() => handleTest(rule)}
+                            disabled={testMutation.isPending}
+                            className="text-blue-600 hover:text-blue-900 transition-all duration-200 disabled:opacity-50"
+                            title="Test rule"
                           >
                             <Zap className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => handleEdit(automation)}
+                            onClick={() => handleEdit(rule)}
                             className="text-gray-600 hover:text-gray-900 transition-all duration-200"
-                            title="Edit automation"
+                            title="Edit rule"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDelete(automation.id)}
-                            disabled={deleteAutomationMutation.isPending}
+                            onClick={() => handleDelete(rule.id)}
+                            disabled={deleteRuleMutation.isPending}
                             className="text-red-600 hover:text-red-900 disabled:opacity-50 transition-all duration-200"
-                            title="Delete automation"
+                            title="Delete rule"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -401,134 +446,16 @@ export default function AutomationsPage() {
 
       {/* Create/Edit Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 z-50">
-          <div className="bg-white rounded-md p-4 w-full max-w-lg max-h-[85vh] overflow-y-auto">
-            <h3 className="text-sm font-semibold mb-3">
-              {selectedAutomation ? 'Edit Automation' : 'Create New Automation'}
-            </h3>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Rule Name
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={selectedAutomation?.name || ''}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-                    placeholder="Enter rule name"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Trigger Type
-                  </label>
-                  <select
-                    defaultValue={selectedAutomation?.triggerType || 'enter'}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-                  >
-                    <option value="enter">Enter Geofence</option>
-                    <option value="exit">Exit Geofence</option>
-                    <option value="dwell">Dwell in Geofence</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows={2}
-                  defaultValue={selectedAutomation?.description || ''}
-                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm resize-none"
-                  placeholder="Describe what this automation does"
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Geofence
-                  </label>
-                  <select className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
-                    <option value="">Select geofence</option>
-                    <option value="1">Home Zone</option>
-                    <option value="2">Work Campus</option>
-                    <option value="3">Warehouse District</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Device (Optional)
-                  </label>
-                  <select className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
-                    <option value="">All devices</option>
-                    <option value="1">iPhone 15 Pro</option>
-                    <option value="2">Samsung Galaxy S24</option>
-                    <option value="3">GPS Tracker</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Integration
-                  </label>
-                  <select className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
-                    <option value="">Select integration</option>
-                    <option value="slack">💬 Slack</option>
-                    <option value="notion">📝 Notion</option>
-                    <option value="google_sheets">📊 Google Sheets</option>
-                    <option value="whatsapp">📱 WhatsApp</option>
-                    <option value="webhook">🔗 Custom Webhook</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Dwell Time (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    defaultValue={selectedAutomation?.dwellTimeMinutes || 5}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-                    placeholder="5"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Only applies to dwell triggers</p>
-                </div>
-              </div>
-              
-              <div className="bg-gray-50 p-3 rounded-md">
-                <h4 className="text-xs font-medium text-gray-900 mb-1.5">Action Configuration</h4>
-                <p className="text-xs text-gray-600">
-                  Configure the specific action to take when this rule triggers. This will vary based on the selected integration type.
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-2 mt-4">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-3 py-1.5 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 text-xs transition-all duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs transition-all duration-200"
-              >
-                {selectedAutomation ? 'Update Rule' : 'Create Rule'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AutomationRuleModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          rule={selectedRule}
+          onSuccess={() => {
+            toast.success('Rule saved successfully');
+            refetch();
+          }}
+        />
       )}
-    </div>
-  );
+    </div >
+  )
 }

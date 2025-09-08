@@ -93,7 +93,7 @@ export function useUpdateDevice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ deviceId, updates }: { deviceId: string; updates: UpdateDeviceRequest }) => 
+    mutationFn: ({ deviceId, updates }: { deviceId: string; updates: UpdateDeviceRequest }) =>
       deviceService.updateDevice(deviceId, updates),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['devices'] });
@@ -175,7 +175,7 @@ export function useCreateGeofence() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (geofence: Omit<Geofence, 'id' | 'created_at' | 'updated_at'>) => 
+    mutationFn: (geofence: Omit<Geofence, 'id' | 'created_at' | 'updated_at'>) =>
       geofenceService.createGeofence(geofence),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['geofences'] });
@@ -188,7 +188,7 @@ export function useUpdateGeofence() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ geofenceId, updates }: { geofenceId: string; updates: Partial<Geofence> }) => 
+    mutationFn: ({ geofenceId, updates }: { geofenceId: string; updates: Partial<Geofence> }) =>
       geofenceService.updateGeofence(geofenceId, updates),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['geofences'] });
@@ -219,11 +219,20 @@ export function useAutomations() {
   });
 }
 
+export function useAutomation(automationId: string) {
+  return useQuery({
+    queryKey: ['automations', automationId],
+    queryFn: () => automationService.getAutomation(automationId),
+    enabled: !!automationId,
+    staleTime: 60 * 1000,
+  });
+}
+
 export function useCreateAutomation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (automation: Omit<Automation, 'id' | 'created_at' | 'updated_at'>) => 
+    mutationFn: (automation: Omit<Automation, 'id' | 'created_at' | 'updated_at'>) =>
       automationService.createAutomation(automation),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['automations'] });
@@ -236,7 +245,7 @@ export function useUpdateAutomation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ automationId, updates }: { automationId: string; updates: Partial<Automation> }) => 
+    mutationFn: ({ automationId, updates }: { automationId: string; updates: Partial<Automation> }) =>
       automationService.updateAutomation(automationId, updates),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['automations'] });
@@ -255,6 +264,24 @@ export function useDeleteAutomation() {
       queryClient.invalidateQueries({ queryKey: ['automations'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
+  });
+}
+
+export function useTestAutomation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (automationId: string) => automationService.testAutomation(automationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
+    },
+  });
+}
+
+export function useDeliveries(params: { limit?: number; offset?: number; automation_id?: string } = {}) {
+  return useQuery({
+    queryKey: ['deliveries', params],
+    queryFn: () => automationService.getDeliveries(params),
+    staleTime: 30 * 1000,
   });
 }
 
@@ -293,7 +320,7 @@ export function useUpdateIntegration() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ integrationId, updates }: { integrationId: string; updates: Partial<Integration> }) => 
+    mutationFn: ({ integrationId, updates }: { integrationId: string; updates: Partial<Integration> }) =>
       integrationService.updateIntegration(integrationId, updates),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['integrations'] });
@@ -397,7 +424,7 @@ export function useCleanupPairingRequests() {
 
 // Device Location History hooks
 export function useDeviceLocationHistory(
-  deviceId: string, 
+  deviceId: string,
   params: { page?: number; limit?: number; start_date?: string; end_date?: string } = {},
   enabled = true
 ) {
@@ -433,7 +460,7 @@ export function useDeviceCommand(deviceId: string, commandId: string, enabled = 
 }
 
 export function useDeviceCommands(
-  deviceId: string, 
+  deviceId: string,
   params: { page?: number; limit?: number } = {},
   enabled = true
 ) {
@@ -641,7 +668,7 @@ export function useCreateAutomationRule() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (rule: CreateAutomationRuleRequest) => 
+    mutationFn: (rule: CreateAutomationRuleRequest) =>
       automationRuleService.createAutomationRule(rule),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
@@ -707,12 +734,12 @@ export function useAnalytics(params: { range?: '24h' | '7d' | '30d' | '90d' } = 
 
 
 // Re-export types for easy access
-export type { 
-  Device, 
-  Event, 
-  Geofence, 
-  Automation, 
-  AutomationRule, 
+export type {
+  Device,
+  Event,
+  Geofence,
+  Automation,
+  AutomationRule,
   CreateAutomationRuleRequest,
   Integration,
   CreateDeviceRequest,

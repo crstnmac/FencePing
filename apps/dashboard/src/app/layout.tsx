@@ -2,8 +2,10 @@ import React from 'react'
 import type { Metadata } from 'next'
 import { Inter } from "next/font/google"
 import { QueryProvider } from '../providers/QueryProvider'
+import { SocketProvider } from '../providers/SocketProvider'
 import { AuthProvider } from '../contexts/AuthContext'
 import { AppContent } from '../components/AppContent'
+import { Toaster } from 'react-hot-toast'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -23,11 +25,14 @@ export default function RootLayout({
       <body className={`${inter.className} bg-gray-50`}>
         <QueryProvider>
           <AuthProvider>
-            <AppContent>
-              {children}
-            </AppContent>
+            <SocketProvider>
+              <AppContent>
+                {children}
+              </AppContent>
+            </SocketProvider>
           </AuthProvider>
         </QueryProvider>
+        <Toaster position="top-right" />
       </body>
     </html>
   )

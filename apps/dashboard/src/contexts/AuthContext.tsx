@@ -84,6 +84,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (err instanceof AuthError && err.isUnauthorized) {
         // Token is invalid, clear auth silently
         await handleLogout();
+      } else if (err instanceof Error && err.message.includes('Session expired')) {
+        // Handle session expired from token refresh
+        await handleLogout();
+        setError(new AuthError(err.message, 401));
       } else {
         setError(err as AuthError);
       }

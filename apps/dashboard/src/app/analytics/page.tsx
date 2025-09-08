@@ -38,7 +38,7 @@ export default function AnalyticsPage() {
   const totalDevices = devices.length;
   const activeDevices = devices.filter(d => d.status === 'online' || d.is_active).length;
   const totalGeofences = geofences.length;
-  const activeAutomations = automations.filter(a => a.is_active).length;
+  const activeAutomations = automations.filter(a => a.enabled).length;
 
   // Event type distribution
   const eventTypes = Array.isArray(events) ? events.reduce((acc, event: any) => {

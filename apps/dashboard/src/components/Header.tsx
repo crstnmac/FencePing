@@ -1,8 +1,9 @@
 'use client';
 
 import { Bell, User, Building, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import { useSidebar } from '../contexts/SidebarContext';
+import { SocketStatus } from './SocketStatus';
 
 interface HeaderProps {
   title: string;
@@ -42,6 +43,8 @@ export function Header({ title, subtitle }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          <SocketStatus />
+          
           <button
             onClick={toggleSidebar}
             className="p-1.5 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-50 transition-all duration-200"
