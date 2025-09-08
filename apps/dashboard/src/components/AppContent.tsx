@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { Sidebar } from './Sidebar';
 import { LoadingSpinner } from './LoadingSpinner';
+import { SidebarProvider } from '../contexts/SidebarContext';
 
 interface AppContentProps {
   children: React.ReactNode;
@@ -49,11 +50,13 @@ export const AppContent = ({ children }: AppContentProps) => {
 
   // Authenticated user - show app with sidebar
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {children}
+    <SidebarProvider>
+      <div className="flex h-screen">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {children}
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };

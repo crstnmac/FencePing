@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ApiKeyAuth } from './auth';
 import helmet from 'helmet';
 import { query } from '@geofence/db';
 import { hashData } from '../utils/encryption.js';
@@ -138,7 +139,7 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
     req.apiKey = {
       id: apiKeyData.id,
       accountId: apiKeyData.account_id,
-      scopes: apiKeyData.scopes || []
+      permissions: apiKeyData.permissions || []
     };
     req.accountId = apiKeyData.account_id;
 
@@ -164,7 +165,7 @@ export function requireScope(scope: string) {
       });
     }
 
-    if (!req.apiKey.scopes.includes(scope) && !req.apiKey.scopes.includes('*')) {
+    if (!req.apiKey.permissions.includes(scope) && !req.apiKey.permissions.includes('*')) {
       return res.status(403).json({
         success: false,
         error: `Required scope: ${scope}`
@@ -260,11 +261,7 @@ export function securityLogger() {
 declare global {
   namespace Express {
     interface Request {
-      apiKey?: {
-        id: string;
-        accountId: string;
-        scopes: string[];
-      };
+      apiKey?: ApiKeyAuth;
     }
   }
 }

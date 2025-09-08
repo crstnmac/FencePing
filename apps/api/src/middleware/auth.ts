@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import { query } from '@geofence/db';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { query } from '@geofence/db';
 import { auth } from '../config/index.js';
 
 const JWT_SECRET = auth.JWT_SECRET;
@@ -15,14 +15,98 @@ export interface JWTPayload {
   exp: number;
 }
 
+export interface ApiKeyAuth {
+  id: string;
+  accountId: string;
+  permissions: string[];
+}
+
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader) {
       return res.status(401).json({
         success: false,
-        error: 'Authorization token required'
+        error: 'Authorization header required'
+      });
+    }
+
+    // Check for API Key authentication first
+    if (authHeader.startsWith('ApiKey ')) {
+      const apiKeyValue = authHeader.substring(6).trim();
+      if (!apiKeyValue) {
+        return res.status(401).json({
+          success: false,
+          error: 'API key value required'
+        });
+      }
+
+      const apiKeyHash = crypto.createHash('sha256').update(apiKeyValue).digest('hex');
+
+      // Query for matching active API key
+      const apiKeyQuery = `
+        SELECT id, account_id, permissions, expires_at, last_used_at
+        FROM api_keys
+        WHERE api_key_hash = $1 AND is_active = true AND revoked_at IS NULL
+      `;
+      const apiKeyResult = await query(apiKeyQuery, [apiKeyHash]);
+
+      if (apiKeyResult.rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid API key'
+        });
+      }
+
+      const apiKey = apiKeyResult.rows[0];
+
+      // Check expiration
+      if (apiKey.expires_at && new Date() > new Date(apiKey.expires_at)) {
+        await query(
+          'UPDATE api_keys SET revoked_at = NOW(), is_active = false WHERE id = $1',
+          [apiKey.id]
+        );
+        return res.status(401).json({
+          success: false,
+          error: 'API key expired'
+        });
+      }
+
+      // Update last used
+      await query(
+        'UPDATE api_keys SET last_used_at = NOW() WHERE id = $1',
+        [apiKey.id]
+      );
+
+      // Log usage
+      await query(
+        `INSERT INTO api_key_usage (api_key_id, endpoint, method, ip_address, user_agent)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [apiKey.id, req.path, req.method, req.ip, req.headers['user-agent'] || '']
+      );
+
+      // Parse permissions
+      const permissions = typeof apiKey.permissions === 'string' ? JSON.parse(apiKey.permissions) : [];
+
+      // Set API key info on request
+      (req as any).apiKey = {
+        id: apiKey.id,
+        accountId: apiKey.account_id,
+        permissions
+      };
+      req.accountId = apiKey.account_id;
+
+      // For authorization, API keys can act as users with their permissions
+      next();
+      return;
+    }
+
+    // Fall back to JWT Bearer token
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Bearer token required'
       });
     }
 
@@ -35,7 +119,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       // Check if session exists and is not revoked
       const sessionQuery = `
         SELECT id, revoked_at, expires_at
-        FROM user_sessions 
+        FROM user_sessions
         WHERE token_hash = $1 AND user_id = $2 AND revoked_at IS NULL
       `;
       const sessionResult = await query(sessionQuery, [tokenHash, decoded.userId]);
@@ -160,6 +244,7 @@ declare global {
         accountId: string;
         sessionId: string;
       };
+      apiKey?: ApiKeyAuth;
       accountId?: string;
     }
   }

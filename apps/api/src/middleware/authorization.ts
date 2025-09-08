@@ -259,7 +259,7 @@ export function requireApiKeyScope(scope: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (req.apiKey) {
       // If using API key authentication
-      const hasScope = req.apiKey.scopes.includes(scope) || req.apiKey.scopes.includes('*');
+      const hasScope = req.apiKey.permissions.includes(scope) || req.apiKey.permissions.includes('*');
 
       if (!hasScope) {
         return res.status(403).json({

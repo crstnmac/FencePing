@@ -123,3 +123,63 @@ export interface ProcessorConfig {
     thresholdMeters: number;
   };
 }
+
+// Settings-related types
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  timezone?: string;
+  created_at: Date;
+  last_login_at?: Date;
+  notification_preferences?: NotificationPreferences;
+}
+
+export interface OrganizationSettings {
+  id: string;
+  name: string;
+  timezone: string;
+  date_format: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
+  time_format: '12' | '24';
+  distance_unit: 'metric' | 'imperial';
+  location_retention_days: number;
+  event_retention_days: number;
+  default_map_region?: 'auto' | 'us' | 'eu' | 'asia' | 'global';
+  coordinate_format?: 'decimal' | 'dms';
+  created_at?: Date;
+  updated_at?: Date;
+  member_count?: number;
+}
+
+export const NotificationPreferencesSchema = z.object({
+  emailGeofenceEvents: z.boolean().default(true),
+  emailAutomationFailures: z.boolean().default(true),
+  emailWeeklyReports: z.boolean().default(false),
+  pushGeofenceEvents: z.boolean().default(false),
+  pushAutomationFailures: z.boolean().default(true),
+  // Add more as needed
+});
+
+export type NotificationPreferences = z.infer<typeof NotificationPreferencesSchema>;
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  key?: string; // Only during creation
+  permissions: string[];
+  lastUsedAt?: Date;
+  expiresAt?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface UserSession {
+  id: string;
+  ip_address: string;
+  user_agent: string;
+  created_at: Date;
+  last_activity_at?: Date;
+  isCurrent: boolean;
+}

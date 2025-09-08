@@ -19,6 +19,7 @@ import { integrationRoutes } from './routes/integrations.js';
 import { automationRoutes } from './routes/automations.js';
 import { settingsRoutes } from './routes/settings.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { apiKeyRoutes } from './routes/apiKeys.js';
 import { initializeKafka, shutdownKafka } from './kafka/producer.js';
 import { connectDb, disconnectDb } from '@geofence/db';
 
@@ -57,7 +58,7 @@ app.use(compression());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
 }));
 
@@ -68,7 +69,6 @@ const strictLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  trustProxy: process.env.NODE_ENV === 'production' ? 1 : false,
 });
 
 const generalLimiter = rateLimit({
@@ -77,7 +77,6 @@ const generalLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  trustProxy: process.env.NODE_ENV === 'production' ? 1 : false,
 });
 
 // Apply strict limiting to auth endpoints
@@ -111,7 +110,9 @@ app.use('/api/events', eventRoutes);
 app.use('/api/integrations', integrationRoutes);
 app.use('/api/automations', automationRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/settings', settingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/api-keys', apiKeyRoutes);
 
 app.use(errorHandler);
 

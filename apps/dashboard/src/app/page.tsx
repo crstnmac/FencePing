@@ -156,41 +156,41 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Recent Events */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-4 py-2 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Recent Events</h3>
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="px-3 py-1.5 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900">Recent Events</h3>
             </div>
-            <div className="p-4">
+            <div className="p-3">
               {eventsLoading ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {[...Array(4)].map((_, i) => (
-                    <div key={i} className="flex items-center space-x-3">
-                      <div className="w-2 h-2 rounded-full bg-gray-300 animate-pulse" />
+                    <div key={i} className="flex items-center space-x-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-pulse" />
                       <div className="flex-1">
-                        <div className="h-4 bg-gray-300 rounded animate-pulse mb-1" style={{width: '80%'}} />
-                        <div className="h-3 bg-gray-300 rounded animate-pulse" style={{width: '60%'}} />
+                        <div className="h-3.5 bg-gray-300 rounded animate-pulse mb-0.5" style={{width: '80%'}} />
+                        <div className="h-2.5 bg-gray-300 rounded animate-pulse" style={{width: '60%'}} />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : recentEvents.length === 0 ? (
-                <div className="text-center py-8">
-                  <Activity className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                <div className="text-center py-6">
+                  <Activity className="h-6 w-6 text-gray-400 mx-auto mb-2" />
                   <p className="text-xs text-gray-500">No recent events</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {recentEvents.map((event) => (
                     <div key={event.id} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-2 h-2 rounded-full ${
+                      <div className="flex items-center space-x-2.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${
                           event.event_type === 'geofence_enter' ? 'bg-green-500' :
                           event.event_type === 'geofence_exit' ? 'bg-red-500' : 'bg-yellow-500'
                         }`} />
                         <div>
-                          <p className="text-xs font-medium text-gray-900">
+                          <p className="text-xs font-medium text-gray-900 truncate">
                             {event.device?.name || 'Unknown Device'} {getEventDisplayName(event.event_type)} {event.geofence?.name || 'Unknown Geofence'}
                           </p>
                           <p className="text-xs text-gray-500">
@@ -206,37 +206,37 @@ export default function HomePage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-4 py-2 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="px-3 py-1.5 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900">Quick Actions</h3>
             </div>
-            <div className="p-4">
-              <div className="space-y-3">
-                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">Create Geofence</p>
+            <div className="p-3">
+              <div className="space-y-2.5">
+                <button className="w-full text-left p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200">
+                  <div className="flex items-center space-x-2.5">
+                    <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 text-sm">Create Geofence</p>
                       <p className="text-xs text-gray-500">Draw a new geofenced area on the map</p>
                     </div>
                   </div>
                 </button>
 
-                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <Smartphone className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">Add Device</p>
+                <button className="w-full text-left p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200">
+                  <div className="flex items-center space-x-2.5">
+                    <Smartphone className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 text-sm">Add Device</p>
                       <p className="text-xs text-gray-500">Register a new tracking device</p>
                     </div>
                   </div>
                 </button>
 
-                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center space-x-3">
-                    <Zap className="h-5 w-5 text-purple-600" />
-                    <div>
-                      <p className="font-medium text-gray-900">Setup Automation</p>
+                <button className="w-full text-left p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200">
+                  <div className="flex items-center space-x-2.5">
+                    <Zap className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 text-sm">Setup Automation</p>
                       <p className="text-xs text-gray-500">Create a new webhook automation</p>
                     </div>
                   </div>

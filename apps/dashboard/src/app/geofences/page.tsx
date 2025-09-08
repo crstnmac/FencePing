@@ -198,29 +198,22 @@ export default function GeofencesPage() {
       
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel */}
-        <div className="w-64 flex flex-col border-r border-gray-200 bg-white">
+        <div className="w-56 flex flex-col border-r border-gray-200 bg-white">
           {/* Controls */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium text-gray-900">Geofences ({filteredGeofences.length})</h2>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create
-              </button>
+          <div className="p-3 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-900">Geofences ({filteredGeofences.length})</h2>
             </div>
 
             {/* Search */}
-            <div className="relative mb-4">
-              <Search className="h-4 w-4 absolute left-3 top-1.5 text-gray-400" />
+            <div className="relative mb-3">
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search geofences..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
               />
             </div>
 
@@ -248,14 +241,6 @@ export default function GeofencesPage() {
                 <p className="text-gray-500 mb-4">
                   {searchTerm ? 'Try adjusting your search terms' : 'Start by creating your first geofence'}
                 </p>
-                {!searchTerm && (
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Create Geofence
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -271,10 +256,10 @@ export default function GeofencesPage() {
                       className="p-3 hover:bg-gray-50 cursor-pointer"
                       onClick={() => setSelectedGeofence(geofence)}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
-                            <h3 className="font-medium text-gray-900">{geofence.name}</h3>
+                            <h3 className="font-medium text-gray-900 truncate">{geofence.name}</h3>
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                               geofence.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                             }`}>
@@ -282,7 +267,7 @@ export default function GeofencesPage() {
                             </span>
                           </div>
                           {geofence.description && (
-                            <p className="text-xs text-gray-600 mb-2">{geofence.description}</p>
+                            <p className="text-xs text-gray-600 mb-2 line-clamp-1">{geofence.description}</p>
                           )}
                           <div className="flex items-center space-x-4 text-xs text-gray-500">
                             <span className="flex items-center">
@@ -291,13 +276,13 @@ export default function GeofencesPage() {
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-1 ml-2">
+                        <div className="flex items-center space-x-2 shrink-0">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleCreateAutomationRule(geofence.id);
                             }}
-                            className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-gray-100 transition-colors"
                             title="Create automation rule"
                           >
                             <Zap className="h-4 w-4" />
@@ -307,7 +292,7 @@ export default function GeofencesPage() {
                               e.stopPropagation();
                               handleToggleGeofenceExpansion(geofence.id);
                             }}
-                            className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-gray-100 transition-colors"
                             title="View automation rules"
                           >
                             <Settings className="h-4 w-4" />
@@ -323,7 +308,7 @@ export default function GeofencesPage() {
                               setPendingGeofence(null);
                               setShowCreateModal(true);
                             }}
-                            className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-gray-100 transition-colors"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
@@ -333,7 +318,7 @@ export default function GeofencesPage() {
                               handleGeofenceDeleteFromList(geofence.id);
                             }}
                             disabled={deleteGeofenceMutation.isPending}
-                            className="p-1 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
+                            className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -345,55 +330,55 @@ export default function GeofencesPage() {
                     {expandedGeofence === geofence.id && (
                       <div className="border-t border-gray-200 bg-gray-50 p-3">
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-xs font-medium text-gray-900 flex items-center">
-                            <Zap className="h-4 w-4 mr-1" />
+                          <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                            <Zap className="h-4 w-4 mr-2" />
                             Automation Rules
                           </h4>
                           <button
                             onClick={() => handleCreateAutomationRule(geofence.id)}
-                            className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            className="flex items-center space-x-1 text-sm px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                           >
-                            <Plus className="h-3 w-3 mr-1 inline" />
-                            Add Rule
+                            <Plus className="h-3 w-3" />
+                            <span>Add Rule</span>
                           </button>
                         </div>
 
                         {automationRules.length === 0 ? (
-                          <p className="text-xs text-gray-500 text-center py-2">
+                          <p className="text-sm text-gray-500 text-center py-4">
                             No automation rules configured for this geofence
                           </p>
                         ) : (
-                          <div className="space-y-1">
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
                             {automationRules.map((rule) => (
-                              <div key={rule.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                              <div key={rule.id} className="flex items-center justify-between p-3 bg-white rounded-lg border shadow-sm">
                                 <div className="flex-1">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs font-medium text-gray-900">{rule.name}</span>
-                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <span className="text-sm font-medium text-gray-900 truncate">{rule.name}</span>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                       rule.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                                     }`}>
                                       {rule.enabled ? 'Enabled' : 'Disabled'}
                                     </span>
                                   </div>
-                                  <div className="text-xs text-gray-500 mt-1">
+                                  <div className="text-xs text-gray-500">
                                     Events: {rule.on_events.join(', ')}
                                     {rule.device ? ` • Device: ${rule.device.name}` : ' • All devices'}
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-1">
+                                <div className="flex items-center space-x-2 ml-3 shrink-0">
                                   <button
                                     onClick={() => handleToggleAutomationRule(rule.id, !rule.enabled)}
-                                    className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                                    className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-gray-100 transition-colors"
                                     title={rule.enabled ? 'Disable rule' : 'Enable rule'}
                                   >
-                                    {rule.enabled ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                    {rule.enabled ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                   </button>
                                   <button
                                     onClick={() => handleDeleteAutomationRule(rule.id)}
-                                    className="p-1 text-gray-400 hover:text-red-600 rounded"
+                                    className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-gray-100 transition-colors"
                                     title="Delete rule"
                                   >
-                                    <Trash2 className="h-3 w-3" />
+                                    <Trash2 className="h-4 w-4" />
                                   </button>
                                 </div>
                               </div>
@@ -467,44 +452,45 @@ export default function GeofencesPage() {
       {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-4 w-full max-w-sm">
-            <h3 className="text-lg font-medium mb-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-xl font-semibold mb-6 text-gray-900">
               {selectedGeofence ? 'Edit Geofence' : 'Create New Geofence'}
             </h3>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Geofence Name
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Geofence Name *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Enter geofence name"
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description
                 </label>
                 <textarea
                   rows={3}
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Enter description"
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter description (optional)"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
                 />
               </div>
 
-              <p className="text-xs text-gray-500">
+              <p className="text-sm text-gray-500 italic">
                 Use the map to draw the geofence boundary, then fill in the details here.
               </p>
             </div>
 
-            <div className="flex justify-end space-x-2 pt-6">
+            <div className="flex justify-end space-x-3 pt-8">
               <button
                 onClick={() => {
                   setShowCreateModal(false);
@@ -512,14 +498,14 @@ export default function GeofencesPage() {
                   setPendingGeofence(null);
                   setFormData({ name: '', description: '' });
                 }}
-                className="px-3 py-1.5 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2.5 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveGeofence}
                 disabled={createGeofenceMutation.isPending || updateGeofenceMutation.isPending || !formData.name.trim()}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {createGeofenceMutation.isPending || updateGeofenceMutation.isPending ? 'Saving...' : (selectedGeofence ? 'Update' : 'Create')} Geofence
               </button>

@@ -378,19 +378,12 @@ export interface AnalyticsResponse {
 // Integration Types
 export interface Integration {
   id: string;
-  name: string;
-  type: 'slack' | 'notion' | 'google_sheets' | 'whatsapp' | 'webhook';
-  description: string;
-  status: 'connected' | 'disconnected' | 'error' | 'pending';
+  name: string; // From automation
+  url: string;
+  status: 'active' | 'inactive';
   is_active: boolean;
-  connected_at?: string;
-  last_used?: string;
-  error_message?: string;
-  config?: Record<string, any>;
-  credentials?: {
-    expires_at?: string;
-    scope?: string;
-  };
+  headers?: Record<string, string>;
+  automation_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -1006,42 +999,35 @@ export const integrationService = {
     }
   },
 
-  // Get specific integration
+  // Get specific webhook integration
   async getIntegration(integrationId: string): Promise<Integration> {
-    const response = await apiRequest<{ data: Integration }>(`/api/integrations/${integrationId}`);
+    const response = await apiRequest<{ data: Integration }>(`/api/integrations/webhook/${integrationId}`);
     return response.data;
   },
 
-  // Create integration
-  async createIntegration(integration: Omit<Integration, 'id' | 'created_at' | 'updated_at' | 'status'>): Promise<Integration> {
-    const response = await apiRequest<{ data: Integration }>('/api/integrations', {
+  // Create webhook integration
+  async createIntegration(webhookData: { automation_id: string; url: string; headers?: Record<string, string>; is_active?: boolean }): Promise<Integration> {
+    const response = await apiRequest<{ data: Integration }>('/api/integrations/webhook', {
       method: 'POST',
-      body: JSON.stringify(integration),
+      body: JSON.stringify(webhookData),
     });
     return response.data;
   },
 
-  // Update integration
+  // Update webhook integration
   async updateIntegration(integrationId: string, updates: Partial<Integration>): Promise<Integration> {
-    const response = await apiRequest<{ data: Integration }>(`/api/integrations/${integrationId}`, {
+    const response = await apiRequest<{ data: Integration }>(`/api/integrations/webhook/${integrationId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
     return response.data;
   },
 
-  // Delete integration
+  // Delete webhook integration
   async deleteIntegration(integrationId: string): Promise<void> {
-    await apiRequest(`/api/integrations/${integrationId}`, {
+    await apiRequest(`/api/integrations/webhook/${integrationId}`, {
       method: 'DELETE',
     });
   },
 
-  // Test integration connection
-  async testIntegration(integrationId: string): Promise<{ success: boolean; message: string }> {
-    const response = await apiRequest<{ success: boolean; message: string }>(`/api/integrations/${integrationId}/test`, {
-      method: 'POST',
-    });
-    return response;
-  }
 };

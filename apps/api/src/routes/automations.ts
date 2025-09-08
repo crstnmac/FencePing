@@ -32,7 +32,6 @@ const CreateAutomationSchema = z.object({
 const CreateAutomationRuleSchema = z.object({
   name: z.string().min(1).max(255),
   geofence_id: z.string().uuid(),
-  automation_id: z.string().uuid(),
   device_id: z.string().uuid().optional(),
   on_events: z.array(z.enum(['enter', 'exit', 'dwell'])).default(['enter']),
   min_dwell_seconds: z.number().int().min(0).default(0),

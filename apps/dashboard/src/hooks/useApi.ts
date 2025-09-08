@@ -280,8 +280,8 @@ export function useCreateIntegration() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (integration: Omit<Integration, 'id' | 'created_at' | 'updated_at' | 'status'>) => 
-      integrationService.createIntegration(integration),
+    mutationFn: (webhookData: { automation_id: string; url: string; headers?: Record<string, string>; is_active?: boolean }) =>
+      integrationService.createIntegration(webhookData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['integrations'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -315,11 +315,6 @@ export function useDeleteIntegration() {
   });
 }
 
-export function useTestIntegration() {
-  return useMutation({
-    mutationFn: (integrationId: string) => integrationService.testIntegration(integrationId),
-  });
-}
 
 export function useGeneratePairingCode() {
   return useMutation({

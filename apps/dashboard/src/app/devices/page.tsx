@@ -302,30 +302,30 @@ export default function EnhancedDevicesPage() {
     <div className="min-h-screen bg-gray-50">
       <Header title="Device Management" />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <div className="sm:flex sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Device Management</h1>
-              <p className="mt-2 text-sm text-gray-700">
+              <h1 className="text-xl font-semibold text-gray-900">Device Management</h1>
+              <p className="mt-1 text-xs text-gray-600">
                 Manage your devices, send commands, and organize into groups
               </p>
             </div>
-            <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-              <div className="flex items-center space-x-3">
+            <div className="mt-3 sm:mt-0 sm:ml-12 sm:flex-none">
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setShowPairingModal(true)}
-                  className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-3 w-3 mr-1.5" />
                   Pair Device
                 </button>
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-3 w-3 mr-1.5" />
                   Add Device
                 </button>
               </div>
@@ -334,28 +334,28 @@ export default function EnhancedDevicesPage() {
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2.5 mb-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1.5">
             {/* Search */}
             <div className="flex-1 max-w-md">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search devices..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-1.5 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
                 />
               </div>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <select
                 value={filters.status || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any || undefined }))}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
@@ -367,7 +367,7 @@ export default function EnhancedDevicesPage() {
               <select
                 value={filters.deviceType || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, deviceType: e.target.value || undefined }))}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
               >
                 <option value="">All Types</option>
                 <option value="mobile">Mobile</option>
@@ -381,7 +381,7 @@ export default function EnhancedDevicesPage() {
               <select
                 value={filters.groupId || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, groupId: e.target.value || undefined }))}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
               >
                 <option value="">All Groups</option>
                 {groups.map(group => (
@@ -392,7 +392,7 @@ export default function EnhancedDevicesPage() {
               <select
                 value={filters.lastSeen || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, lastSeen: e.target.value as any || undefined }))}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
               >
                 <option value="">All Time</option>
                 <option value="hour">Last Hour</option>
@@ -403,7 +403,7 @@ export default function EnhancedDevicesPage() {
 
               <button
                 onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs flex items-center"
+                className="px-2 py-1 border border-gray-300 rounded-md hover:bg-gray-50 text-xs flex items-center transition-all duration-200"
               >
                 <Layers className="h-3 w-3 mr-1" />
                 {viewMode === 'table' ? 'Grid' : 'Table'}
@@ -413,28 +413,28 @@ export default function EnhancedDevicesPage() {
 
           {/* Bulk Actions */}
           {selectedDevices.length > 0 && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
-              <span className="text-sm text-blue-700">
+            <div className="mt-2.5 p-2.5 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
+              <span className="text-xs text-blue-700">
                 {selectedDevices.length} device{selectedDevices.length > 1 ? 's' : ''} selected
               </span>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5">
                 <button
                   onClick={() => setShowAssignGroupModal(true)}
-                  className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
+                  className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md text-xs hover:bg-blue-200 transition-all duration-200"
                 >
                   <Users className="h-3 w-3 mr-1 inline" />
                   Assign to Group
                 </button>
                 <button
                   onClick={handleBulkDelete}
-                  className="px-3 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
+                  className="px-2.5 py-1 bg-red-100 text-red-700 rounded-md text-xs hover:bg-red-200 transition-all duration-200"
                 >
                   <Trash2 className="h-3 w-3 mr-1 inline" />
                   Delete Selected
                 </button>
                 <button
                   onClick={() => setShowGroupModal(true)}
-                  className="px-3 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200"
+                  className="px-2.5 py-1 bg-green-100 text-green-700 rounded-md text-xs hover:bg-green-200 transition-all duration-200"
                 >
                   <Plus className="h-3 w-3 mr-1 inline" />
                   Create Group
@@ -492,34 +492,34 @@ export default function EnhancedDevicesPage() {
 
         {/* Create/Edit Device Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-medium mb-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 z-50">
+            <div className="bg-white rounded-md p-4 w-full max-w-sm">
+              <h3 className="text-sm font-semibold mb-3">
                 {selectedDevice ? 'Edit Device' : 'Create New Device'}
               </h3>
               
-              <form onSubmit={handleCreateDevice} className="space-y-4">
+              <form onSubmit={handleCreateDevice} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
                     Device Name *
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
                     Device Type *
                   </label>
                   <select
                     value={formData.device_type}
                     onChange={(e) => setFormData(prev => ({ ...prev, device_type: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
                     required
                   >
                     <option value="mobile">Mobile Phone</option>
@@ -532,18 +532,18 @@ export default function EnhancedDevicesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
                     Description
                   </label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4">
+                <div className="flex justify-end space-x-2 pt-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -551,13 +551,13 @@ export default function EnhancedDevicesPage() {
                       setSelectedDevice(null);
                       setFormData({ name: '', description: '', device_type: 'mobile' });
                     }}
-                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="px-3 py-1.5 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 text-xs transition-all duration-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-xs transition-all duration-200"
                     disabled={createDeviceMutation.isPending || updateDeviceMutation.isPending}
                   >
                     {(createDeviceMutation.isPending || updateDeviceMutation.isPending) ? 'Saving...' : (selectedDevice ? 'Update Device' : 'Create Device')}
@@ -597,33 +597,33 @@ export default function EnhancedDevicesPage() {
 
         {/* Notification */}
         {notification && (
-          <div className="fixed bottom-4 right-4 max-w-md w-full z-50">
-            <div className={`rounded-lg p-4 shadow-lg ${
+          <div className="fixed bottom-3 right-3 max-w-sm w-full z-50">
+            <div className={`rounded-md p-3 shadow-md ${
               notification.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
             }`}>
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   {notification.type === 'success' ? (
-                    <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
-                      <Check className="h-4 w-4 text-green-600" />
+                    <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-green-600" />
                     </div>
                   ) : (
-                    <div className="h-6 w-6 rounded-full bg-red-100 flex items-center justify-center">
-                      <X className="h-4 w-4 text-red-600" />
+                    <div className="h-5 w-5 rounded-full bg-red-100 flex items-center justify-center">
+                      <X className="h-3 w-3 text-red-600" />
                     </div>
                   )}
                 </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-sm font-medium text-gray-900">
+                <div className="ml-2.5 flex-1">
+                  <p className="text-xs font-medium text-gray-900">
                     {notification.message}
                   </p>
                 </div>
-                <div className="ml-4 flex-shrink-0 flex">
+                <div className="ml-3 flex-shrink-0 flex">
                   <button
                     onClick={() => setNotification(null)}
-                    className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500"
+                    className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 transition-colors duration-200"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               </div>

@@ -170,25 +170,25 @@ export default function EventsPage() {
         subtitle="View and analyze location events and automation history"
       />
       
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-3">
         {/* Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
-          <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-3">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 type="text"
                 placeholder="Search events..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
-                className="pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-2 py-1.5 border rounded-lg transition-colors ${
+                className={`flex items-center gap-1.5 px-2 py-1.5 border rounded-md transition-colors ${
                   showFilters ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:bg-gray-50'
                 }`}
               >
@@ -200,7 +200,7 @@ export default function EventsPage() {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange((e.target as HTMLSelectElement).value as any)}
-                className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-gray-300 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="today">Today</option>
                 <option value="week">Last 7 days</option>
@@ -210,18 +210,18 @@ export default function EventsPage() {
             </div>
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1.5">
             <button
               onClick={() => refetch()}
               disabled={isLoading}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-800 px-2 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="flex items-center gap-1.5 text-gray-600 hover:text-gray-800 px-2 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            <button 
+            <button
               onClick={exportEvents}
-              className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-1.5 bg-green-600 text-white px-2.5 py-1.5 rounded-md hover:bg-green-700 transition-colors"
             >
               <Download className="h-4 w-4" />
               Export CSV
@@ -280,57 +280,57 @@ export default function EventsPage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-md shadow-sm p-3">
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Activity className="h-6 w-6 text-blue-600" />
+              <div className="p-1.5 bg-blue-100 rounded-md">
+                <Activity className="h-5 w-5 text-blue-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Events</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Total Events</p>
+                <p className="text-lg font-semibold text-gray-900">
                   {isLoading ? '...' : totalEvents}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-md shadow-sm p-3">
             <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <ArrowRight className="h-6 w-6 text-green-600" />
+              <div className="p-1.5 bg-green-100 rounded-md">
+                <ArrowRight className="h-5 w-5 text-green-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Enter Events</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Enter Events</p>
+                <p className="text-lg font-semibold text-gray-900">
                   {isLoading ? '...' : filteredEvents.filter(e => e.event_type === 'geofence_enter').length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-md shadow-sm p-3">
             <div className="flex items-center">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <ArrowLeft className="h-6 w-6 text-red-600" />
+              <div className="p-1.5 bg-red-100 rounded-md">
+                <ArrowLeft className="h-5 w-5 text-red-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Exit Events</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Exit Events</p>
+                <p className="text-lg font-semibold text-gray-900">
                   {isLoading ? '...' : filteredEvents.filter(e => e.event_type === 'geofence_exit').length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-md shadow-sm p-3">
             <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <Clock className="h-6 w-6 text-yellow-600" />
+              <div className="p-1.5 bg-yellow-100 rounded-md">
+                <Clock className="h-5 w-5 text-yellow-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Dwell Events</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Dwell Events</p>
+                <p className="text-lg font-semibold text-gray-900">
                   {isLoading ? '...' : filteredEvents.filter(e => e.event_type === 'geofence_dwell').length}
                 </p>
               </div>
@@ -339,73 +339,73 @@ export default function EventsPage() {
         </div>
 
         {/* Events Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">
+        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-900">
               Event History ({isLoading ? '...' : totalEvents} events)
             </h3>
           </div>
           
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Event
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Device
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Geofence
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Location
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Timestamp
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {isLoading ? (
                   // Loading skeleton rows
                   [...Array(5)].map((_, i) => (
                     <tr key={i}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="w-8 h-8 bg-gray-300 rounded-full animate-pulse mr-3" />
+                          <div className="w-6 h-6 bg-gray-300 rounded-full animate-pulse mr-2.5" />
                           <div>
-                            <div className="h-4 bg-gray-300 rounded animate-pulse mb-1" />
-                            <div className="h-3 bg-gray-300 rounded animate-pulse w-16" />
+                            <div className="h-3.5 bg-gray-300 rounded animate-pulse mb-0.5" />
+                            <div className="h-2.5 bg-gray-300 rounded animate-pulse w-16" />
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="h-4 bg-gray-300 rounded animate-pulse w-24" />
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="h-3.5 bg-gray-300 rounded animate-pulse w-24" />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="h-4 bg-gray-300 rounded animate-pulse w-28" />
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="h-3.5 bg-gray-300 rounded animate-pulse w-28" />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="h-4 bg-gray-300 rounded animate-pulse w-32" />
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="h-3.5 bg-gray-300 rounded animate-pulse w-32" />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="h-4 bg-gray-300 rounded animate-pulse w-24" />
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="h-3.5 bg-gray-300 rounded animate-pulse w-24" />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="h-4 w-4 bg-gray-300 rounded animate-pulse" />
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="h-3.5 w-3.5 bg-gray-300 rounded animate-pulse" />
                       </td>
                     </tr>
                   ))
                 ) : filteredEvents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center">
-                      <Activity className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-500">
+                    <td colSpan={6} className="px-4 py-6 text-center">
+                      <Activity className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+                      <p className="text-xs text-gray-500">
                         {searchTerm ? 'No events match your search' : 'No events found'}
                       </p>
                     </td>
@@ -416,32 +416,32 @@ export default function EventsPage() {
                     const IconComponent = eventIcon.icon;
                     
                     return (
-                      <tr key={event.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      <tr key={event.id} className="hover:bg-gray-50 transition-all duration-200">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className={`p-2 rounded-full ${eventIcon.bg} mr-3`}>
-                              <IconComponent className={`h-4 w-4 ${eventIcon.color}`} />
+                            <div className={`p-1.5 rounded-full ${eventIcon.bg} mr-2.5`}>
+                              <IconComponent className={`h-3.5 w-3.5 ${eventIcon.color}`} />
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-xs font-medium text-gray-900">
                                 {getEventDisplayName(event.event_type)}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center">
-                            <Smartphone className="h-4 w-4 text-gray-400 mr-2" />
-                            <span className="text-sm text-gray-900">{event.device?.name || 'Unknown Device'}</span>
+                            <Smartphone className="h-3.5 w-3.5 text-gray-400 mr-2" />
+                            <span className="text-xs text-gray-900">{event.device?.name || 'Unknown Device'}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center">
-                            <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                            <span className="text-sm text-gray-900">{event.geofence?.name || 'Unknown Geofence'}</span>
+                            <MapPin className="h-3.5 w-3.5 text-gray-400 mr-2" />
+                            <span className="text-xs text-gray-900">{event.geofence?.name || 'Unknown Geofence'}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
                           {event.location ? (
                             <div>
                               {event.location.latitude.toFixed(4)}, {event.location.longitude.toFixed(4)}
@@ -450,15 +450,15 @@ export default function EventsPage() {
                             <span className="text-gray-400">No location</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
                           {formatTimestamp(event.timestamp)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
                           <button
                             onClick={() => setSelectedEvent(event)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-blue-600 hover:text-blue-900 transition-all duration-200"
                           >
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-3.5 w-3.5" />
                           </button>
                         </td>
                       </tr>
@@ -470,29 +470,29 @@ export default function EventsPage() {
           </div>
 
           {/* Pagination */}
-          <div className="bg-white px-6 py-3 flex items-center justify-between border-t border-gray-200">
-            <div className="text-sm text-gray-700">
+          <div className="bg-white px-4 py-2.5 flex items-center justify-between border-t border-gray-200">
+            <div className="text-xs text-gray-700">
               {isLoading ? 'Loading...' : (
-                totalEvents > 0 ? 
+                totalEvents > 0 ?
                   `Showing ${((currentPage - 1) * itemsPerPage) + 1} to ${Math.min(currentPage * itemsPerPage, totalEvents)} of ${totalEvents} results` :
                   'No results'
               )}
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1 || isLoading}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-2.5 py-1 border border-gray-300 rounded-md text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
               >
                 Previous
               </button>
-              <span className="text-sm text-gray-700">
+              <span className="text-xs text-gray-700">
                 Page {currentPage} of {totalPages || 1}
               </span>
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages || totalPages === 0 || isLoading}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-2.5 py-1 border border-gray-300 rounded-md text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
               >
                 Next
               </button>

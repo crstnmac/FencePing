@@ -1,8 +1,8 @@
 import { Consumer, Kafka } from 'kafkajs';
-import { Queue } from 'bullmq';
 import { Pool } from 'pg';
 import { Logger } from 'pino';
 import { createHash } from 'crypto';
+import { WebhookIntegration } from './integrations/WebhookIntegration.js';
 
 interface RawLocationEvent {
   v: number;
@@ -29,7 +29,6 @@ interface GeofenceEventData {
 
 export class AutomationProcessor {
   private consumer: Consumer;
-  private webhookQueue: Queue;
   private dbPool: Pool;
   private logger: Logger;
   private isRunning = false;
@@ -43,19 +42,6 @@ export class AutomationProcessor {
       sessionTimeout: 30000,
       heartbeatInterval: 3000,
     });
-
-    this.webhookQueue = new Queue('webhook-delivery', {
-      connection: redisConfig,
-      defaultJobOptions: {
-        removeOnComplete: { age: 24 * 60 * 60, count: 100 },
-        removeOnFail: { age: 7 * 24 * 60 * 60, count: 50 },
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
-        },
-      },
-    });
   }
 
   async start(): Promise<void> {
@@ -67,21 +53,25 @@ export class AutomationProcessor {
       await this.consumer.connect();
       this.logger.info('Connected to Kafka consumer');
 
-      await this.consumer.subscribe({ 
-        topics: ['raw_events'], 
-        fromBeginning: false 
+      await this.consumer.subscribe({
+        topics: ['gf_events'],
+        fromBeginning: false
       });
 
       await this.consumer.run({
         eachMessage: async ({ topic, partition, message, heartbeat }) => {
           try {
-            await this.processLocationEvent(message.value?.toString() || '');
+            if (topic === 'raw_events') {
+              await this.processLocationEvent(message.value?.toString() || '');
+            } else if (topic === 'gf_events') {
+              await this.processGeofenceEvent(JSON.parse(message.value?.toString() || '{}'));
+            }
             await heartbeat();
           } catch (error) {
-            this.logger.error({ 
-              error: this.serializeError(error), 
-              topic, 
-              partition 
+            this.logger.error({
+              error: this.serializeError(error),
+              topic,
+              partition
             }, 'Failed to process message');
             
             // For validation errors (missing accounts/devices), don't crash the consumer
@@ -107,12 +97,11 @@ export class AutomationProcessor {
 
   async stop(): Promise<void> {
     if (!this.isRunning) return;
-
+  
     try {
       this.logger.info('Stopping automation processor...');
       
       await this.consumer.disconnect();
-      await this.webhookQueue.close();
       
       this.isRunning = false;
       this.logger.info('Automation processor stopped');
@@ -215,9 +204,9 @@ export class AutomationProcessor {
       const currentGeofences = await this.dbPool.query(`
         SELECT g.id, g.name, g.type
         FROM geofences g
-        WHERE g.account_id = $1 
-          AND g.active = true
-          AND ST_Contains(g.geom, ST_SetSRID(ST_MakePoint($2, $3), 4326))
+        WHERE g.account_id = $1
+          AND g.is_active = true
+          AND ST_Contains(g.geometry, ST_SetSRID(ST_MakePoint($2, $3), 4326))
       `, [event.accountId, event.lon, event.lat]);
 
       // Get previous location state for this device
@@ -302,9 +291,9 @@ export class AutomationProcessor {
       const dwellRules = await this.dbPool.query(`
         SELECT ar.min_dwell_seconds, ar.id
         FROM automation_rules ar
-        WHERE ar.geofence_id = $1 
+        WHERE ar.geofence_id = $1
           AND ar.account_id = $2
-          AND ar.enabled = true
+          AND ar.is_active = true
           AND ar.min_dwell_seconds > 0
           AND 'dwell' = ANY(ar.on_events)
       `, [geofenceId, event.accountId]);
@@ -364,7 +353,16 @@ export class AutomationProcessor {
     return dwellEvents;
   }
 
-  private async processGeofenceEvent(geofenceEvent: GeofenceEventData): Promise<void> {
+  private async processGeofenceEvent(geofenceEventData: any): Promise<void> {
+    const geofenceEvent: GeofenceEventData = {
+      accountId: geofenceEventData.accountId,
+      deviceId: geofenceEventData.deviceId,
+      geofenceId: geofenceEventData.geofenceId,
+      type: geofenceEventData.type,
+      timestamp: geofenceEventData.ts,
+      dwellSeconds: geofenceEventData.dwellSeconds,
+      location: geofenceEventData.location || [0, 0]
+    };
     try {
       this.logger.debug({ geofenceEvent }, 'Processing geofence event');
       
@@ -376,12 +374,12 @@ export class AutomationProcessor {
         INNER JOIN geofences g ON g.account_id = a.id
         WHERE d.id = $1 AND a.id = $2 AND g.id = $3
       `, [geofenceEvent.deviceId, geofenceEvent.accountId, geofenceEvent.geofenceId]);
-
+  
       if (validationResult.rows.length === 0) {
-        this.logger.warn({ 
-          accountId: geofenceEvent.accountId, 
+        this.logger.warn({
+          accountId: geofenceEvent.accountId,
           deviceId: geofenceEvent.deviceId,
-          geofenceId: geofenceEvent.geofenceId 
+          geofenceId: geofenceEvent.geofenceId
         }, 'Skipping geofence event - account, device, or geofence does not exist');
         return; // Skip processing this event
       }
@@ -407,23 +405,23 @@ export class AutomationProcessor {
       ]);
       
       this.logger.debug({ insertedRows: geventResult.rows.length }, 'Inserted geofence event');
-
+  
       if (geventResult.rows.length === 0) {
         this.logger.debug({ eventHash }, 'Duplicate geofence event, skipping');
         return;
       }
-
+  
       const geventId = geventResult.rows[0].id;
-
+  
       // Find matching automation rules
       const automationRules = await this.dbPool.query(`
         SELECT ar.id as rule_id, ar.automation_id, ar.device_id, ar.device_filter
         FROM automation_rules ar
         JOIN automations a ON ar.automation_id = a.id
-        WHERE ar.geofence_id = $1 
+        WHERE ar.geofence_id = $1
           AND ar.account_id = $2
-          AND ar.enabled = true
-          AND a.enabled = true
+          AND ar.is_active = true
+          AND a.is_active = true
           AND $3 = ANY(ar.on_events)
           AND (ar.device_id IS NULL OR ar.device_id = $4)
           AND (ar.min_dwell_seconds <= $5)
@@ -434,15 +432,15 @@ export class AutomationProcessor {
         geofenceEvent.deviceId,
         geofenceEvent.dwellSeconds || 0
       ]);
-
-      // Create delivery jobs for each matching rule
+  
+      // Process each matching rule
       for (const rule of automationRules.rows) {
         // Check device filter if specified
         if (rule.device_filter && Object.keys(rule.device_filter).length > 0) {
           const deviceMatches = await this.checkDeviceFilter(geofenceEvent.deviceId, rule.device_filter);
           if (!deviceMatches) continue;
         }
-
+  
         // Create delivery record
         const deliveryResult = await this.dbPool.query(`
           INSERT INTO deliveries (
@@ -455,34 +453,67 @@ export class AutomationProcessor {
           rule.rule_id,
           geventId
         ]);
-
+  
         const deliveryId = deliveryResult.rows[0].id;
-
-        // Queue webhook job
-        await this.webhookQueue.add('deliver-webhook', {
-          deliveryId,
-          automationId: rule.automation_id,
-          ruleId: rule.rule_id,
-          geventId: geventId,
-          accountId: geofenceEvent.accountId
-        }, {
-          priority: geofenceEvent.type === 'enter' ? 1 : 
-                   geofenceEvent.type === 'exit' ? 2 : 3, // Prioritize enter events
-          delay: geofenceEvent.type === 'dwell' ? 5000 : 0 // Small delay for dwell events
-        });
-
-        this.logger.info({
-          deliveryId,
-          automationId: rule.automation_id,
-          geofenceId: geofenceEvent.geofenceId,
-          eventType: geofenceEvent.type
-        }, 'Queued webhook delivery');
+  
+        try {
+          // Fetch automation details
+          const automationResult = await this.dbPool.query(`
+            SELECT id, kind, config FROM automations WHERE id = $1
+          `, [rule.automation_id]);
+  
+          if (automationResult.rows.length === 0) {
+            this.logger.warn({ automation_id: rule.automation_id }, 'Automation not found');
+            await this.updateDeliveryStatus(deliveryId, 'failed', 'Automation not found');
+            continue;
+          }
+  
+          const automation = automationResult.rows[0];
+  
+          if (automation.kind !== 'webhook') {
+            this.logger.info({ automation_id: rule.automation_id, kind: automation.kind }, 'Non-webhook integration disabled');
+            await this.updateDeliveryStatus(deliveryId, 'disabled', 'Non-webhook integration not supported');
+            continue;
+          }
+  
+          // Get enriched geofence event
+          const enrichedEvent = await this.getEnrichedGeofenceEvent(geventId);
+  
+          if (!enrichedEvent) {
+            await this.updateDeliveryStatus(deliveryId, 'failed', 'Failed to enrich event data');
+            continue;
+          }
+  
+          // Build payload
+          const payload = this.buildWebhookPayload(geofenceEvent, enrichedEvent);
+  
+          // Instantiate and execute WebhookIntegration
+          const webhookIntegration = new WebhookIntegration(this.logger);
+          const result = await webhookIntegration.execute(payload, automation.config, {});
+  
+          // Update delivery status
+          await this.updateDeliveryStatus(deliveryId, 'success', undefined, result);
+  
+          this.logger.info({
+            deliveryId,
+            automationId: rule.automation_id,
+            geofenceId: geofenceEvent.geofenceId,
+            eventType: geofenceEvent.type
+          }, 'Webhook delivery processed directly');
+  
+        } catch (error) {
+          this.logger.error({
+            error: this.serializeError(error),
+            deliveryId
+          }, 'Failed to process delivery directly');
+          await this.updateDeliveryStatus(deliveryId, 'failed', error instanceof Error ? error.message : 'Unknown error');
+        }
       }
-
+  
     } catch (error) {
-      this.logger.error({ 
-        error: this.serializeError(error), 
-        geofenceEvent 
+      this.logger.error({
+        error: this.serializeError(error),
+        geofenceEvent
       }, 'Failed to process geofence event');
       throw error;
     }
@@ -522,14 +553,95 @@ export class AutomationProcessor {
     return true;
   }
 
+  private async getEnrichedGeofenceEvent(geventId: string) {
+    try {
+      const result = await this.dbPool.query(`
+        SELECT
+          ge.id,
+          ge.device_id,
+          ge.geofence_id,
+          ge.type,
+          ge.ts as timestamp,
+          ge.dwell_seconds,
+          d.name as device_name,
+          g.name as geofence_name
+        FROM geofence_events ge
+        JOIN devices d ON ge.device_id = d.id
+        JOIN geofences g ON ge.geofence_id = g.id
+        WHERE ge.id = $1
+      `, [geventId]);
+  
+      if (result.rows.length === 0) return null;
+  
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        deviceId: row.device_id,
+        geofenceId: row.geofence_id,
+        type: row.type,
+        timestamp: row.timestamp,
+        dwellSeconds: row.dwell_seconds,
+        deviceName: row.device_name,
+        geofenceName: row.geofence_name
+      };
+    } catch (error) {
+      this.logger.error({ error, geventId }, 'Failed to fetch enriched geofence event');
+      return null;
+    }
+  }
+  
+  private buildWebhookPayload(geofenceEvent: GeofenceEventData, enriched: any): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+      event: {
+        type: geofenceEvent.type,
+        timestamp: geofenceEvent.timestamp,
+        device: {
+          id: geofenceEvent.deviceId,
+          name: enriched.deviceName
+        },
+        geofence: {
+          id: geofenceEvent.geofenceId,
+          name: enriched.geofenceName
+        }
+      }
+    };
+  
+    if (geofenceEvent.dwellSeconds) {
+      (payload.event as any).dwellSeconds = geofenceEvent.dwellSeconds;
+    }
+  
+    return payload;
+  }
+  
+  private async updateDeliveryStatus(
+    deliveryId: string,
+    status: 'success' | 'failed' | 'disabled',
+    error?: string,
+    responseData?: any
+  ): Promise<void> {
+    try {
+      const errorValue = status === 'failed' ? error || 'Unknown error' : null;
+      await this.dbPool.query(`
+        UPDATE deliveries
+        SET status = $1,
+            last_error = $2,
+            updated_at = NOW(),
+            response_data = $3
+        WHERE id = $4
+      `, [status, errorValue, responseData ? JSON.stringify(responseData) : null, deliveryId]);
+    } catch (dbError) {
+      this.logger.error({ dbError, deliveryId }, 'Failed to update delivery status');
+    }
+  }
+  
   isHealthy(): boolean {
     return this.isRunning;
   }
-
+  
   getMetrics() {
     return {
       isRunning: this.isRunning,
       consumerConnected: this.consumer !== null,
     };
   }
-}
+  }

@@ -34,7 +34,8 @@ export interface AuthResponse {
   data: {
     user: User;
     organization: Account;
-    token: string;
+    accessToken: string;
+    refreshToken: string;
     expires_in: string;
   };
   error?: string;
@@ -118,14 +119,21 @@ class AuthService {
     return localStorage.getItem(AUTH_TOKEN_KEY);
   }
 
-  setStoredToken(token: string): void {
+  getStoredRefreshToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('refresh_token');
+  }
+
+  setStoredToken(accessToken: string, refreshToken: string): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    localStorage.setItem(AUTH_TOKEN_KEY, accessToken);
+    localStorage.setItem('refresh_token', refreshToken);
   }
 
   removeStoredToken(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem('refresh_token');
   }
 
   // Authentication methods
@@ -138,9 +146,9 @@ class AuthService {
 
     const data = await this.handleResponse<AuthResponse>(response);
     
-    // Store token on successful login
-    if (data.success && data.data.token) {
-      this.setStoredToken(data.data.token);
+    // Store tokens on successful login
+    if (data.success && data.data.accessToken && data.data.refreshToken) {
+      this.setStoredToken(data.data.accessToken, data.data.refreshToken);
     }
 
     return data;
@@ -155,9 +163,9 @@ class AuthService {
 
     const data = await this.handleResponse<AuthResponse>(response);
     
-    // Store token on successful registration
-    if (data.success && data.data.token) {
-      this.setStoredToken(data.data.token);
+    // Store tokens on successful registration
+    if (data.success && data.data.accessToken && data.data.refreshToken) {
+      this.setStoredToken(data.data.accessToken, data.data.refreshToken);
     }
 
     return data;
@@ -180,12 +188,12 @@ class AuthService {
 
       const data = await this.handleResponse<LogoutResponse>(response);
       
-      // Always remove token locally, regardless of server response
+      // Always remove tokens locally, regardless of server response
       this.removeStoredToken();
       
       return data;
     } catch (error) {
-      // Even if server logout fails, remove token locally
+      // Even if server logout fails, remove tokens locally
       this.removeStoredToken();
       throw error;
     }

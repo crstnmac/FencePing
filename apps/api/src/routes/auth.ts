@@ -48,7 +48,7 @@ function isRateLimited(identifier: string, maxAttempts: number = 5, windowMs: nu
   return false;
 }
 
-async function createUserSession(userId: string, accountId: string, email: string, req: any): Promise<{ token: string; sessionId: string }> {
+async function createUserSession(userId: string, accountId: string, email: string, req: any): Promise<{ accessToken: string; refreshToken: string; sessionId: string }> {
   // Create session record first to get the UUID
   const sessionResult = await query(
     'INSERT INTO user_sessions (user_id, token_hash, expires_at, ip_address, user_agent, last_activity_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
@@ -64,26 +64,43 @@ async function createUserSession(userId: string, accountId: string, email: strin
 
   const sessionId = sessionResult.rows[0].id;
 
-  // Create JWT token with the actual session ID
-  const token = jwt.sign(
+  // Create JWT access token with the actual session ID
+  const accessToken = jwt.sign(
     {
       userId,
       email,
       accountId,
-      sessionId
+      sessionId,
+      type: 'access'
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN } as SignOptions
   );
 
-  // Update session with actual token hash
-  const tokenHash = hashData(token);
+  // Generate opaque refresh token
+  const refreshToken = generateSecureToken(64); // 64-character hex string
+
+  // Update session with actual access token hash
+  const accessTokenHash = hashData(accessToken);
   await query(
     'UPDATE user_sessions SET token_hash = $1 WHERE id = $2',
-    [tokenHash, sessionId]
+    [accessTokenHash, sessionId]
   );
 
-  return { token, sessionId };
+  // Store refresh token in refresh_tokens table
+  const refreshTokenHash = hashData(refreshToken);
+  await query(
+    'INSERT INTO refresh_tokens (token_hash, user_id, session_id, expires_at, created_at) VALUES ($1, $2, $3, $4, $5)',
+    [
+      refreshTokenHash,
+      userId,
+      sessionId,
+      new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)), // 14 days for refresh token
+      new Date()
+    ]
+  );
+
+  return { accessToken, refreshToken, sessionId };
 }
 
 // Register new user and organization
@@ -139,8 +156,8 @@ router.post('/register', validateBody(RegisterSchema), async (req, res) => {
       const accountResult = await query(accountQuery, [organization_name, user.id]);
       const account = accountResult.rows[0];
 
-      // Create session and generate token
-      const { token, sessionId } = await createUserSession(user.id, account.id, user.email, req);
+      // Create session and generate tokens
+      const { accessToken, refreshToken, sessionId } = await createUserSession(user.id, account.id, user.email, req);
 
       await query('COMMIT');
 
@@ -162,7 +179,8 @@ router.post('/register', validateBody(RegisterSchema), async (req, res) => {
             role: 'owner',
             created_at: account.created_at
           },
-          token,
+          accessToken,
+          refreshToken,
           expires_in: JWT_EXPIRES_IN
         }
       });
@@ -263,8 +281,8 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
       [user.id]
     );
 
-    // Create session and generate token
-    const { token, sessionId } = await createUserSession(user.id, user.account_id, user.email, req);
+    // Create session and generate tokens
+    const { accessToken, refreshToken, sessionId } = await createUserSession(user.id, user.account_id, user.email, req);
 
     // Clear rate limit on successful login
     authAttempts.delete(identifier);
@@ -283,7 +301,8 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
           name: user.account_name,
           role: user.role
         },
-        token,
+        accessToken,
+        refreshToken,
         expires_in: JWT_EXPIRES_IN
       }
     });
@@ -297,25 +316,149 @@ router.post('/login', validateBody(LoginSchema), async (req, res) => {
   } finally {  }
 });
 
-// Logout with session revocation
-router.post('/logout', requireAuth, async (req, res) => {
+async function refreshUserSession(refreshToken: string, req: any): Promise<{ token: string; sessionId: string; userId: string; email: string; accountId: string } | null> {
+  try {
+    // Validate opaque refresh token against refresh_tokens table
+    const refreshTokenHash = hashData(refreshToken);
+    
+    // Check if refresh token exists and is valid
+    const refreshTokenCheck = await query(
+      `SELECT rt.user_id, rt.session_id, rt.expires_at, 
+              u.email, a.id as account_id 
+       FROM refresh_tokens rt
+       JOIN users u ON rt.user_id = u.id
+       JOIN accounts a ON u.id = a.owner_id
+       WHERE rt.token_hash = $1 AND rt.expires_at > NOW()`,
+      [refreshTokenHash]
+    );
+
+    if (refreshTokenCheck.rows.length === 0) {
+      return null;
+    }
+
+    const refreshData = refreshTokenCheck.rows[0];
+    const { userId, sessionId, email, accountId } = refreshData;
+    
+    // Check if session is still valid
+    const sessionCheck = await query(
+      'SELECT revoked_at, expires_at FROM user_sessions WHERE id = $1 AND user_id = $2',
+      [sessionId, userId]
+    );
+
+    if (sessionCheck.rows.length === 0) {
+      return null;
+    }
+
+    const session = sessionCheck.rows[0];
+    
+    // Check if session is revoked
+    if (session.revoked_at) {
+      return null;
+    }
+
+    // Check if session is expired
+    if (new Date(session.expires_at) < new Date()) {
+      return null;
+    }
+
+    // Revoke the old refresh token
+    await query(
+      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1',
+      [refreshTokenHash]
+    );
+
+    // Create new access token for this session
+    const newToken = jwt.sign(
+      {
+        userId,
+        email,
+        accountId,
+        sessionId,
+        type: 'access',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + parseInt(JWT_EXPIRES_IN)
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN } as SignOptions
+    );
+
+    // Generate new refresh token
+    const newRefreshToken = generateSecureToken(64);
+    const newRefreshTokenHash = hashData(newRefreshToken);
+    
+    // Store new refresh token
+    await query(
+      'INSERT INTO refresh_tokens (token_hash, user_id, session_id, expires_at, created_at) VALUES ($1, $2, $3, $4, $5)',
+      [
+        newRefreshTokenHash,
+        userId,
+        sessionId,
+        new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)), // 14 days
+        new Date()
+      ]
+    );
+
+    // Update last activity
+    await query(
+      'UPDATE user_sessions SET last_activity_at = NOW() WHERE id = $1',
+      [sessionId]
+    );
+
+    return { 
+      token: newToken, 
+      sessionId, 
+      userId, 
+      email, 
+      accountId,
+      refreshToken: newRefreshToken
+    };
+  } catch (error) {
+    console.error('Token refresh verification error:', error);
+    return null;
+  }
+}
+
+// Refresh access token using refresh token
+router.post('/refresh', async (req, res) => {
   // Using query() function for automatic connection management
 
   try {
-    if (req.user?.sessionId) {
-      // Revoke the current session
-      await query(
-        'UPDATE user_sessions SET revoked_at = NOW() WHERE id = $1',
-        [req.user.sessionId]
-      );
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Refresh token required'
+      });
+    }
+
+    const sessionData = await refreshUserSession(refreshToken, req);
+
+    if (!sessionData) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid or expired refresh token'
+      });
     }
 
     res.json({
       success: true,
-      message: 'Logged out successfully'
+      data: {
+        accessToken: sessionData.token,
+        refreshToken: sessionData.refreshToken,
+        expires_in: JWT_EXPIRES_IN,
+        user: {
+          id: sessionData.userId,
+          email: sessionData.email
+        },
+        organization: {
+          id: sessionData.accountId
+        }
+      }
     });
+
   } catch (error) {
-    console.error('Logout error:', error);
+    console.error('Refresh token error:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error'

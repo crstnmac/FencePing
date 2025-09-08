@@ -94,22 +94,22 @@ export class GeofenceProcessor {
 
       // Get active geofences for this account
       const geofencesQuery = `
-        SELECT 
+        SELECT
           id,
           name,
-          type,
-          geom,
+          geofence_type as type,
+          geometry,
           radius_m,
-          CASE 
-            WHEN type = 'circle' THEN ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, radius_m)
-            WHEN type = 'polygon' THEN ST_Contains(geom, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+          CASE
+            WHEN geofence_type = 'circle' THEN ST_DWithin(geometry::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, radius_m)
+            WHEN geofence_type = 'polygon' THEN ST_Contains(geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
           END as is_inside
-        FROM geofences 
-        WHERE account_id = $3 AND active = true
+        FROM geofences
+        WHERE account_id = $3 AND is_active = true
         AND ST_DWithin(
-          geom,
-          ST_SetSRID(ST_MakePoint($1, $2), 4326),
-          0.01 -- ~1km buffer for performance
+          geometry::geography,
+          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+          1000 -- 1km buffer for performance
         )
       `;
 
@@ -166,12 +166,12 @@ export class GeofenceProcessor {
   private async storeLocationEvent(event: z.infer<typeof RawEventSchema>) {
     const query = `
       INSERT INTO location_events (account_id, device_id, ts, loc, speed_mps, accuracy_m, battery_pct, payload)
-      VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6, $7, $8, $9)
+      VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography, $6, $7, $8, $9)
     `;
 
     await this.pgClient.query(query, [
       event.accountId,
-      event.deviceId, 
+      event.deviceId,
       event.ts,
       event.lon,
       event.lat,
