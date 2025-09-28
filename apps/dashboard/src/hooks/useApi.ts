@@ -7,7 +7,7 @@ import {
   geofenceService,
   automationService,
   automationRuleService,
-  integrationService,
+  integrationService, // DEPRECATED - use automationService
   analyticsService,
   type Device,
   type Event,
@@ -15,7 +15,6 @@ import {
   type Automation,
   type AutomationRule,
   type CreateAutomationRuleRequest,
-  type Integration,
   type CreateDeviceRequest,
   type UpdateDeviceRequest,
   type PairingCodeResponse,
@@ -37,7 +36,7 @@ import {
   type AnalyticsData,
   type AnalyticsResponse,
   type DeviceActivity,
-  type AutomationStat
+  type AutomationStat,
 } from '../services/api';
 
 // Dashboard hooks
@@ -116,15 +115,17 @@ export function useDeleteDevice() {
 }
 
 // Event hooks
-export function useEvents(params: {
-  limit?: number;
-  offset?: number;
-  device_id?: string;
-  geofence_id?: string;
-  event_type?: string;
-  from_date?: string;
-  to_date?: string;
-} = {}) {
+export function useEvents(
+  params: {
+    limit?: number;
+    offset?: number;
+    device_id?: string;
+    geofence_id?: string;
+    event_type?: string;
+    from_date?: string;
+    to_date?: string;
+  } = {}
+) {
   return useQuery({
     queryKey: ['events', params],
     queryFn: () => eventService.getEvents(params),
@@ -155,11 +156,18 @@ export function useReplayEvent() {
 
 // Geofence hooks
 export function useGeofences() {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['geofences'],
     queryFn: geofenceService.getGeofences,
     staleTime: 60 * 1000, // 1 minute
   });
+
+  return {
+    geofences: query.data || [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
 export function useGeofence(geofenceId: string) {
@@ -245,8 +253,13 @@ export function useUpdateAutomation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ automationId, updates }: { automationId: string; updates: Partial<Automation> }) =>
-      automationService.updateAutomation(automationId, updates),
+    mutationFn: ({
+      automationId,
+      updates,
+    }: {
+      automationId: string;
+      updates: Partial<Automation>;
+    }) => automationService.updateAutomation(automationId, updates),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['automations'] });
       queryClient.invalidateQueries({ queryKey: ['automations', variables.automationId] });
@@ -277,7 +290,9 @@ export function useTestAutomation() {
   });
 }
 
-export function useDeliveries(params: { limit?: number; offset?: number; automation_id?: string } = {}) {
+export function useDeliveries(
+  params: { limit?: number; offset?: number; automation_id?: string } = {}
+) {
   return useQuery({
     queryKey: ['deliveries', params],
     queryFn: () => automationService.getDeliveries(params),
@@ -285,63 +300,90 @@ export function useDeliveries(params: { limit?: number; offset?: number; automat
   });
 }
 
-// Integration hooks
+// DEPRECATED Integration hooks - use automation hooks instead
 export function useIntegrations() {
+  console.warn('useIntegrations() is deprecated. Use useAutomations() instead.');
   return useQuery({
-    queryKey: ['integrations'],
-    queryFn: integrationService.getIntegrations,
+    queryKey: ['automations'],
+    queryFn: automationService.getAutomations,
     staleTime: 60 * 1000, // 1 minute
   });
 }
 
 export function useIntegration(integrationId: string) {
+  console.warn('useIntegration() is deprecated. Use useAutomation() instead.');
   return useQuery({
-    queryKey: ['integrations', integrationId],
-    queryFn: () => integrationService.getIntegration(integrationId),
+    queryKey: ['automations', integrationId],
+    queryFn: () => automationService.getAutomation(integrationId),
     enabled: !!integrationId,
     staleTime: 60 * 1000,
   });
 }
 
 export function useCreateIntegration() {
+  console.warn('useCreateIntegration() is deprecated. Use useCreateAutomation() instead.');
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (webhookData: { automation_id: string; url: string; headers?: Record<string, string>; is_active?: boolean }) =>
-      integrationService.createIntegration(webhookData),
+    mutationFn: (webhookData: {
+      url: string;
+      headers?: Record<string, string>;
+      is_active?: boolean;
+      name?: string;
+    }) =>
+      automationService.createAutomation({
+        name: webhookData.name || 'Webhook Integration',
+        kind: 'webhook',
+        config: {
+          url: webhookData.url,
+          headers: webhookData.headers || {},
+        },
+        enabled: webhookData.is_active !== false,
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['integrations'] });
+      queryClient.invalidateQueries({ queryKey: ['automations'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
 
 export function useUpdateIntegration() {
+  console.warn('useUpdateIntegration() is deprecated. Use useUpdateAutomation() instead.');
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ integrationId, updates }: { integrationId: string; updates: Partial<Integration> }) =>
-      integrationService.updateIntegration(integrationId, updates),
+    mutationFn: ({ integrationId, updates }: { integrationId: string; updates: any }) => {
+      const automationUpdates: any = {};
+      if (updates.name) automationUpdates.name = updates.name;
+      if (updates.is_active !== undefined) automationUpdates.enabled = updates.is_active;
+      if (updates.url || updates.headers) {
+        automationUpdates.config = {
+          url: updates.url,
+          headers: updates.headers || {},
+        };
+      }
+      return automationService.updateAutomation(integrationId, automationUpdates);
+    },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['integrations'] });
-      queryClient.invalidateQueries({ queryKey: ['integrations', variables.integrationId] });
+      queryClient.invalidateQueries({ queryKey: ['automations'] });
+      queryClient.invalidateQueries({ queryKey: ['automations', variables.integrationId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
 
 export function useDeleteIntegration() {
+  console.warn('useDeleteIntegration() is deprecated. Use useDeleteAutomation() instead.');
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (integrationId: string) => integrationService.deleteIntegration(integrationId),
+    mutationFn: (integrationId: string) => automationService.deleteAutomation(integrationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['integrations'] });
+      queryClient.invalidateQueries({ queryKey: ['automations'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
-
 
 export function useGeneratePairingCode() {
   return useMutation({
@@ -408,8 +450,13 @@ export function useShareDevice() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ deviceId, shareRequest }: { deviceId: string; shareRequest: DeviceShareRequest }) =>
-      deviceService.shareDevice(deviceId, shareRequest),
+    mutationFn: ({
+      deviceId,
+      shareRequest,
+    }: {
+      deviceId: string;
+      shareRequest: DeviceShareRequest;
+    }) => deviceService.shareDevice(deviceId, shareRequest),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['device', 'users', variables.deviceId] });
     },
@@ -533,8 +580,15 @@ export function useRevokeDeviceCertificate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ deviceId, certificateId, reason }: { deviceId: string; certificateId: string; reason?: string }) =>
-      deviceService.revokeDeviceCertificate(deviceId, certificateId, reason),
+    mutationFn: ({
+      deviceId,
+      certificateId,
+      reason,
+    }: {
+      deviceId: string;
+      certificateId: string;
+      reason?: string;
+    }) => deviceService.revokeDeviceCertificate(deviceId, certificateId, reason),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['device', 'certificates', variables.deviceId] });
     },
@@ -603,8 +657,13 @@ export function useUpdateDeviceGroup() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ groupId, updates }: { groupId: string; updates: Partial<CreateDeviceGroupRequest> }) =>
-      deviceGroupService.updateDeviceGroup(groupId, updates),
+    mutationFn: ({
+      groupId,
+      updates,
+    }: {
+      groupId: string;
+      updates: Partial<CreateDeviceGroupRequest>;
+    }) => deviceGroupService.updateDeviceGroup(groupId, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['device-groups'] });
     },
@@ -672,7 +731,9 @@ export function useCreateAutomationRule() {
       automationRuleService.createAutomationRule(rule),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
-      queryClient.invalidateQueries({ queryKey: ['automation-rules', 'geofence', data.geofence_id] });
+      queryClient.invalidateQueries({
+        queryKey: ['automation-rules', 'geofence', data.geofence_id],
+      });
       if (data.device_id) {
         queryClient.invalidateQueries({ queryKey: ['automation-rules', 'device', data.device_id] });
       }
@@ -684,11 +745,18 @@ export function useUpdateAutomationRule() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ ruleId, updates }: { ruleId: string; updates: Partial<CreateAutomationRuleRequest> }) =>
-      automationRuleService.updateAutomationRule(ruleId, updates),
+    mutationFn: ({
+      ruleId,
+      updates,
+    }: {
+      ruleId: string;
+      updates: Partial<CreateAutomationRuleRequest>;
+    }) => automationRuleService.updateAutomationRule(ruleId, updates),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
-      queryClient.invalidateQueries({ queryKey: ['automation-rules', 'geofence', data.geofence_id] });
+      queryClient.invalidateQueries({
+        queryKey: ['automation-rules', 'geofence', data.geofence_id],
+      });
       if (data.device_id) {
         queryClient.invalidateQueries({ queryKey: ['automation-rules', 'device', data.device_id] });
       }
@@ -715,7 +783,9 @@ export function useToggleAutomationRule() {
       automationRuleService.toggleAutomationRule(ruleId, enabled),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['automation-rules'] });
-      queryClient.invalidateQueries({ queryKey: ['automation-rules', 'geofence', data.geofence_id] });
+      queryClient.invalidateQueries({
+        queryKey: ['automation-rules', 'geofence', data.geofence_id],
+      });
       if (data.device_id) {
         queryClient.invalidateQueries({ queryKey: ['automation-rules', 'device', data.device_id] });
       }
@@ -732,7 +802,6 @@ export function useAnalytics(params: { range?: '24h' | '7d' | '30d' | '90d' } = 
   });
 }
 
-
 // Re-export types for easy access
 export type {
   Device,
@@ -741,7 +810,6 @@ export type {
   Automation,
   AutomationRule,
   CreateAutomationRuleRequest,
-  Integration,
   CreateDeviceRequest,
   UpdateDeviceRequest,
   PairingCodeResponse,
@@ -752,5 +820,5 @@ export type {
   DeviceShareRequest,
   DeviceGroup,
   CreateDeviceGroupRequest,
-  DashboardStats
+  DashboardStats,
 };

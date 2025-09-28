@@ -54,9 +54,9 @@ export function DeviceCommandModal({
   if (!isOpen || !device) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 z-50">
+      <div className="bg-white rounded-md shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between p-2 border-b border-gray-200">
           <div className="flex items-center">
             <Terminal className="h-6 w-6 text-blue-600 mr-3" />
             <h2 className="text-lg font-semibold text-gray-900">Send Command</h2>
@@ -69,7 +69,7 @@ export function DeviceCommandModal({
           </button>
         </div>
 
-        <div className="p-4">
+        <div className="p-2">
           <div className="mb-4">
             <span className="text-sm text-gray-500">Device:</span>
             <div className="text-sm font-medium text-gray-900">{device.name}</div>
@@ -84,7 +84,7 @@ export function DeviceCommandModal({
               <select
                 value={selectedCommand}
                 onChange={(e) => setSelectedCommand(e.target.value as any)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
                 {commands.map(cmd => (
@@ -109,7 +109,7 @@ export function DeviceCommandModal({
                 value={parameters}
                 onChange={(e) => setParameters(e.target.value)}
                 placeholder="{}"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
                 rows={3}
               />
             </div>
@@ -125,13 +125,13 @@ export function DeviceCommandModal({
                 onChange={(e) => setTimeout(Number(e.target.value))}
                 min="1"
                 max="300"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {/* Warning for destructive commands */}
             {(selectedCommand === 'factory_reset' || selectedCommand === 'restart' || selectedCommand === 'update_firmware') && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                 <div className="text-yellow-800 text-sm">
                   <strong>Warning:</strong> This command may cause device downtime. Proceed with caution.
                 </div>
@@ -142,14 +142,14 @@ export function DeviceCommandModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                className=" text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
                 disabled={isLoading}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                className=" text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 disabled={isLoading}
               >
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

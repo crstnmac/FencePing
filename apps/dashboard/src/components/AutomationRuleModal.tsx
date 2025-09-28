@@ -1,15 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  X,
-  MapPin,
-  Smartphone,
-  Zap,
-  Clock,
-  Target,
-  Users
-} from 'lucide-react';
+import { X, MapPin, Smartphone, Zap, Clock, Target, Users } from 'lucide-react';
 import {
   useDevices,
   useGeofences,
@@ -20,7 +12,7 @@ import {
   useUpdateAutomation,
   type AutomationRule,
   type CreateAutomationRuleRequest,
-  type Automation
+  type Automation,
 } from '../hooks/useApi';
 
 interface AutomationRuleModalProps {
@@ -38,10 +30,10 @@ export function AutomationRuleModal({
   rule,
   preselectedGeofenceId,
   preselectedDeviceId,
-  onSuccess
+  onSuccess,
 }: AutomationRuleModalProps) {
   const { data: devices = [] } = useDevices();
-  const { data: geofences = [] } = useGeofences();
+  const { geofences = [] } = useGeofences();
   const { data: automations = [] } = useAutomations();
 
   const createRuleMutation = useCreateAutomationRule();
@@ -124,7 +116,10 @@ export function AutomationRuleModal({
       newErrors.on_events = 'Please select at least one trigger event';
     }
 
-    if (formData.on_events.includes('dwell') && (!formData.min_dwell_seconds || formData.min_dwell_seconds < 1)) {
+    if (
+      formData.on_events.includes('dwell') &&
+      (!formData.min_dwell_seconds || formData.min_dwell_seconds < 1)
+    ) {
       newErrors.min_dwell_seconds = 'Minimum dwell time is required for dwell events';
     }
 
@@ -144,7 +139,7 @@ export function AutomationRuleModal({
       if (formData.automation_id && Object.keys(config).length > 0 && selectedAutomation) {
         await updateAutomationMutation.mutateAsync({
           automationId: formData.automation_id,
-          updates: { config }
+          updates: { config },
         });
       }
 
@@ -154,7 +149,7 @@ export function AutomationRuleModal({
         // Update existing rule
         result = await updateRuleMutation.mutateAsync({
           ruleId: rule.id,
-          updates: formData
+          updates: formData,
         });
       } else {
         // Create new rule
@@ -170,11 +165,11 @@ export function AutomationRuleModal({
   };
 
   const handleEventToggle = (event: 'enter' | 'exit' | 'dwell') => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       on_events: prev.on_events.includes(event)
-        ? prev.on_events.filter(e => e !== event)
-        : [...prev.on_events, event]
+        ? prev.on_events.filter((e) => e !== event)
+        : [...prev.on_events, event],
     }));
   };
 
@@ -183,13 +178,13 @@ export function AutomationRuleModal({
   const isLoading = createRuleMutation.isPending || updateRuleMutation.isPending;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 z-50">
+      <div className="bg-white rounded-md w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 rounded-md">
                 <Zap className="h-5 w-5 text-blue-600" />
               </div>
               <div>
@@ -203,7 +198,7 @@ export function AutomationRuleModal({
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-md transition-colors"
             >
               <X className="h-5 w-5 text-gray-500" />
             </button>
@@ -211,7 +206,7 @@ export function AutomationRuleModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-2 space-y-4">
           {/* Rule Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -220,9 +215,10 @@ export function AutomationRuleModal({
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.name ? 'border-red-500' : 'border-gray-300'
-                }`}
+              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.name ? 'border-red-500' : 'border-gray-300'
+              }`}
               placeholder="e.g., Office Entry Alert"
             />
             {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
@@ -236,18 +232,21 @@ export function AutomationRuleModal({
             </label>
             <select
               value={formData.geofence_id}
-              onChange={(e) => setFormData(prev => ({ ...prev, geofence_id: e.target.value }))}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.geofence_id ? 'border-red-500' : 'border-gray-300'
-                }`}
+              onChange={(e) => setFormData((prev) => ({ ...prev, geofence_id: e.target.value }))}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.geofence_id ? 'border-red-500' : 'border-gray-300'
+              }`}
             >
               <option value="">Select a geofence...</option>
-              {geofences.map(geofence => (
+              {geofences.map((geofence) => (
                 <option key={geofence.id} value={geofence.id}>
                   {geofence.name} ({geofence.geofence_type})
                 </option>
               ))}
             </select>
-            {errors.geofence_id && <p className="mt-1 text-sm text-red-600">{errors.geofence_id}</p>}
+            {errors.geofence_id && (
+              <p className="mt-1 text-sm text-red-600">{errors.geofence_id}</p>
+            )}
           </div>
 
           {/* Device Selection */}
@@ -258,22 +257,22 @@ export function AutomationRuleModal({
             </label>
             <select
               value={formData.device_id || ''}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                device_id: e.target.value || undefined
-              }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  device_id: e.target.value || undefined,
+                }))
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All devices</option>
-              {devices.map(device => (
+              {devices.map((device) => (
                 <option key={device.id} value={device.id}>
                   {device.name} ({device.device_type})
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-sm text-gray-500">
-              Leave empty to apply rule to all devices
-            </p>
+            <p className="mt-1 text-sm text-gray-500">Leave empty to apply rule to all devices</p>
           </div>
 
           {/* Trigger Events */}
@@ -284,9 +283,21 @@ export function AutomationRuleModal({
             </label>
             <div className="space-y-2">
               {[
-                { value: 'enter', label: 'Enter Geofence', description: 'When device enters the geofence area' },
-                { value: 'exit', label: 'Exit Geofence', description: 'When device leaves the geofence area' },
-                { value: 'dwell', label: 'Dwell in Geofence', description: 'When device stays in geofence for specified time' }
+                {
+                  value: 'enter',
+                  label: 'Enter Geofence',
+                  description: 'When device enters the geofence area',
+                },
+                {
+                  value: 'exit',
+                  label: 'Exit Geofence',
+                  description: 'When device leaves the geofence area',
+                },
+                {
+                  value: 'dwell',
+                  label: 'Dwell in Geofence',
+                  description: 'When device stays in geofence for specified time',
+                },
               ].map(({ value, label, description }) => (
                 <label key={value} className="flex items-start space-x-3 cursor-pointer">
                   <input
@@ -316,15 +327,20 @@ export function AutomationRuleModal({
                 type="number"
                 min="1"
                 value={formData.min_dwell_seconds || ''}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  min_dwell_seconds: parseInt(e.target.value) || undefined
-                }))}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.min_dwell_seconds ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    min_dwell_seconds: parseInt(e.target.value) || undefined,
+                  }))
+                }
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.min_dwell_seconds ? 'border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="300"
               />
-              {errors.min_dwell_seconds && <p className="mt-1 text-sm text-red-600">{errors.min_dwell_seconds}</p>}
+              {errors.min_dwell_seconds && (
+                <p className="mt-1 text-sm text-red-600">{errors.min_dwell_seconds}</p>
+              )}
               <p className="mt-1 text-sm text-gray-500">
                 How long the device must stay in the geofence before triggering
               </p>
@@ -339,18 +355,21 @@ export function AutomationRuleModal({
             </label>
             <select
               value={formData.automation_id}
-              onChange={(e) => setFormData(prev => ({ ...prev, automation_id: e.target.value }))}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.automation_id ? 'border-red-500' : 'border-gray-300'
-                }`}
+              onChange={(e) => setFormData((prev) => ({ ...prev, automation_id: e.target.value }))}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.automation_id ? 'border-red-500' : 'border-gray-300'
+              }`}
             >
               <option value="">Select an automation...</option>
-              {automations.map(automation => (
+              {automations.map((automation) => (
                 <option key={automation.id} value={automation.id}>
                   {automation.name}
                 </option>
               ))}
             </select>
-            {errors.automation_id && <p className="mt-1 text-sm text-red-600">{errors.automation_id}</p>}
+            {errors.automation_id && (
+              <p className="mt-1 text-sm text-red-600">{errors.automation_id}</p>
+            )}
             {automations.length === 0 && (
               <p className="mt-1 text-sm text-amber-600">
                 No automations available. Create an automation first.
@@ -368,38 +387,46 @@ export function AutomationRuleModal({
                 {selectedAutomation.kind === 'webhook' && (
                   <>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Webhook URL</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Webhook URL
+                      </label>
                       <input
                         type="url"
                         value={config.url || ''}
-                        onChange={(e) => setConfig(prev => ({ ...prev, url: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        onChange={(e) => setConfig((prev) => ({ ...prev, url: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Headers (JSON)</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Headers (JSON)
+                      </label>
                       <textarea
                         rows={3}
                         value={JSON.stringify(config.headers || {}, null, 2)}
                         onChange={(e) => {
                           try {
                             const parsed = JSON.parse(e.target.value);
-                            setConfig(prev => ({ ...prev, headers: parsed }));
-                          } catch { }
+                            setConfig((prev) => ({ ...prev, headers: parsed }));
+                          } catch {}
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
                       />
                     </div>
                   </>
                 )}
                 {selectedAutomation.kind === 'notion' && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Database ID</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Database ID
+                    </label>
                     <input
                       type="text"
                       value={config.database_id || ''}
-                      onChange={(e) => setConfig(prev => ({ ...prev, database_id: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      onChange={(e) =>
+                        setConfig((prev) => ({ ...prev, database_id: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                   </div>
                 )}
@@ -419,7 +446,7 @@ export function AutomationRuleModal({
               type="checkbox"
               id="enabled"
               checked={formData.enabled}
-              onChange={(e) => setFormData(prev => ({ ...prev, enabled: e.target.checked }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, enabled: e.target.checked }))}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
             <label htmlFor="enabled" className="text-sm font-medium text-gray-700">
@@ -429,7 +456,7 @@ export function AutomationRuleModal({
 
           {/* Error Message */}
           {errors.submit && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="bg-red-50 border border-red-200 rounded-md p-2">
               <p className="text-sm text-red-600">{errors.submit}</p>
             </div>
           )}
@@ -439,22 +466,24 @@ export function AutomationRuleModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className=" text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className=" bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   <span>{rule ? 'Updating...' : 'Creating...'}</span>
                 </div>
+              ) : rule ? (
+                'Update Rule'
               ) : (
-                rule ? 'Update Rule' : 'Create Rule'
+                'Create Rule'
               )}
             </button>
           </div>

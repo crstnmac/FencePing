@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tailwindcss/theme" layer(theme);
+@import "../styles/design-system.css";
 
 @theme {
   --color-border: hsl(214.3 31.8% 91.4%);

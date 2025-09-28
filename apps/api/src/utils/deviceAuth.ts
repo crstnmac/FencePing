@@ -1,5 +1,5 @@
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { query } from '@geofence/db';
 import { auth } from '../config/index.js';

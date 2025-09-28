@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import io, { Socket } from 'socket.io-client';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -19,14 +19,14 @@ const SocketContext = createContext<SocketContextType>({
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
-  const { organization, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Only connect if user is authenticated and has an organization
-    if (!isAuthenticated || !organization?.id) {
+    // Only connect if user is authenticated
+    if (!isAuthenticated || !user?.id) {
       return;
     }
 
@@ -45,9 +45,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       setIsConnected(true);
       setError(null);
       
-      // Join the organization room
-      newSocket.emit('join-room', organization.id);
-      console.log('🏠 Joined room:', organization.id);
+      // Join the user room
+      newSocket.emit('join-room', user.id);
+      console.log('🏠 Joined room:', user.id);
     });
 
     newSocket.on('disconnect', (reason) => {
@@ -110,7 +110,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       setIsConnected(false);
       setError(null);
     };
-  }, [isAuthenticated, organization?.id, queryClient]);
+  }, [isAuthenticated, user?.id, queryClient]);
 
   const contextValue: SocketContextType = {
     socket,

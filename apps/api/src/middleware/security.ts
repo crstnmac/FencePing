@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { ApiKeyAuth } from './auth';
 import helmet from 'helmet';
 import { query } from '@geofence/db';
 import { hashData } from '../utils/encryption.js';
 import { urls } from '../config/index.js';
+import { ApiKeyAuth } from './auth';
 
 // Global rate limiting maps
 const requestCounts = new Map<string, { count: number; resetTime: number }>();

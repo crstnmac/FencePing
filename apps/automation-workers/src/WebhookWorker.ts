@@ -401,8 +401,8 @@ export class WebhookWorker {
     try {
       await this.dbPool.query(`
         UPDATE deliveries 
-        SET status = $1, 
-            last_error = $2, 
+        SET status = $2, 
+            last_error = $3, 
             attempt = attempt + 1,
             updated_at = NOW()
         WHERE id = $1

@@ -1,0 +1,28 @@
+# Migration Dockerfile for Better Auth and database setup
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+COPY turbo.json ./
+COPY packages/ ./packages/
+COPY apps/api/package*.json ./apps/api/
+
+# Install all dependencies
+RUN npm ci --only=production
+
+# Copy necessary files for migration
+COPY apps/api/auth.ts ./apps/api/
+COPY apps/api/src/config/ ./apps/api/src/config/
+COPY packages/db/ ./packages/db/
+
+# Install @better-auth/cli globally for migration
+RUN npm install -g @better-auth/cli
+
+# Set environment
+ENV NODE_ENV=production
+
+# Default command will be overridden by docker-compose
+CMD ["npm", "run", "migrate:better-auth"]

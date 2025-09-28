@@ -1,6 +1,6 @@
-// Re-export the useAuth hook from the auth context
-// This maintains backward compatibility while consolidating auth logic
-export { useAuth } from '../contexts/AuthContext';
+// Re-export the Better Auth hook as useAuth for compatibility
+// This maintains backward compatibility while using Better Auth
+export { useBetterAuth as useAuth } from './useBetterAuth';
 
 // Export types for convenience
-export type { User, Account, LoginRequest, RegisterRequest } from '../services/auth';
+export type { User, AuthError } from './useBetterAuth';

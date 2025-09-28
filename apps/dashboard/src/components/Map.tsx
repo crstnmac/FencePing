@@ -7,11 +7,13 @@ import {
   TerraDrawPolygonMode,
   TerraDrawPointMode,
   TerraDrawCircleMode,
-  TerraDrawSelectMode
+  TerraDrawSelectMode,
 } from 'terra-draw';
 import { TerraDrawMapLibreGLAdapter } from 'terra-draw-maplibre-gl-adapter';
 import { Search, MapPin, X } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { GeofenceEditModal } from './GeofenceEditModal';
+import { FrontendGeofence, UpdateGeofenceRequest } from '../types/geofence';
 
 interface MapProps {
   onGeofenceCreate: (geofence: {
@@ -22,12 +24,8 @@ interface MapProps {
   }) => void;
   onGeofenceUpdate: (id: string, geofence: any) => void;
   onGeofenceDelete: (id: string) => void;
-  geofences: Array<{
-    id: string;
-    name: string;
-    geometry: any;
-    type: 'polygon' | 'circle' | 'point';
-  }>;
+  onGeofenceEdit?: (id: string, updates: UpdateGeofenceRequest) => Promise<void>;
+  geofences: Array<FrontendGeofence>;
   devices: Array<{
     id: string;
     name: string;
@@ -41,25 +39,37 @@ export function Map({
   onGeofenceCreate,
   onGeofenceUpdate,
   onGeofenceDelete,
+  onGeofenceEdit,
   geofences = [],
-  devices = []
+  devices = [],
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const draw = useRef<TerraDraw | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [currentMode, setCurrentMode] = useState<'select' | 'polygon' | 'circle' | 'point'>('select');
-  const [terraDrawStatus, setTerraDrawStatus] = useState<'initializing' | 'ready' | 'error'>('initializing');
+  const [currentMode, setCurrentMode] = useState<'select' | 'polygon' | 'circle' | 'point'>(
+    'select'
+  );
+  const [terraDrawStatus, setTerraDrawStatus] = useState<'initializing' | 'ready' | 'error'>(
+    'initializing'
+  );
   const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null);
-  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState<{ id: string; name: string } | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [editingGeofence, setEditingGeofence] = useState<FrontendGeofence | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Search functionality
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Array<{
-    place_name: string;
-    center: [number, number];
-    place_type?: string[];
-  }>>([]);
+  const [searchResults, setSearchResults] = useState<
+    Array<{
+      place_name: string;
+      center: [number, number];
+      place_type?: string[];
+    }>
+  >([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [selectedResultIndex, setSelectedResultIndex] = useState(-1);
@@ -69,7 +79,7 @@ export function Map({
   const callbacksRef = useRef({
     onGeofenceCreate,
     onGeofenceUpdate,
-    onGeofenceDelete
+    onGeofenceDelete,
   });
 
   // Refs for up-to-date state in event handlers
@@ -81,7 +91,7 @@ export function Map({
     callbacksRef.current = {
       onGeofenceCreate,
       onGeofenceUpdate,
-      onGeofenceDelete
+      onGeofenceDelete,
     };
   }, [onGeofenceCreate, onGeofenceUpdate, onGeofenceDelete]);
 
@@ -93,7 +103,6 @@ export function Map({
   useEffect(() => {
     geofencesRef.current = geofences;
   }, [geofences]);
-
 
   // Search functionality
   const searchPlaces = useCallback(async (query: string) => {
@@ -115,7 +124,7 @@ export function Map({
         const results = data.map((item: any) => ({
           place_name: item.display_name,
           center: [parseFloat(item.lon), parseFloat(item.lat)] as [number, number],
-          place_type: [item.type || 'place']
+          place_type: [item.type || 'place'],
         }));
         setSearchResults(results);
         setShowResults(results.length > 0);
@@ -141,19 +150,21 @@ export function Map({
     map.current.flyTo({
       center,
       zoom: 15,
-      duration: 1000
+      duration: 1000,
     });
 
     // Add a marker for the searched location
     const el = document.createElement('div');
-    el.className = 'search-marker w-8 h-8 bg-red-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center';
+    el.className =
+      'search-marker w-8 h-8 bg-red-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center';
     el.innerHTML = '📍';
 
     searchMarker.current = new maplibregl.Marker(el)
       .setLngLat(center)
       .setPopup(
-        new maplibregl.Popup({ offset: 25 })
-          .setHTML(`<div class="p-2"><strong>${placeName}</strong></div>`)
+        new maplibregl.Popup({ offset: 25 }).setHTML(
+          `<div class="p-2"><strong>${placeName}</strong></div>`
+        )
       )
       .addTo(map.current);
 
@@ -179,9 +190,9 @@ export function Map({
       'geofences-points',
       'geofences-circles',
       'geofences-points-highlight',
-      'geofences-selected-points'
+      'geofences-selected-points',
     ];
-    existingLayers.forEach(layerId => {
+    existingLayers.forEach((layerId) => {
       if (map.current!.getLayer(layerId)) {
         map.current!.removeLayer(layerId);
       }
@@ -194,15 +205,15 @@ export function Map({
     // Create GeoJSON features from geofences
     console.log('Raw geofences data:', geofences);
     const features = geofences
-      .filter(g => g.geometry && g.id !== undefined && g.id !== null && g.id !== '') // Ensure valid geometry and ID
-      .map(geofence => {
+      .filter((g) => g.geometry && g.id !== undefined && g.id !== null && g.id !== '') // Ensure valid geometry and ID
+      .map((geofence) => {
         // Ensure ID is always a string
         const featureId = String(geofence.id);
         console.log('Processing geofence:', {
           id: geofence.id,
           featureId,
           name: geofence.name,
-          hasGeometry: !!geofence.geometry
+          hasGeometry: !!geofence.geometry,
         });
         return {
           type: 'Feature' as const,
@@ -210,9 +221,9 @@ export function Map({
           properties: {
             name: geofence.name,
             type: geofence.type || (geofence as any).geofence_type,
-            id: featureId // Store string ID in properties too
+            id: featureId, // Store string ID in properties too
           },
-          geometry: geofence.geometry
+          geometry: geofence.geometry as any,
         };
       });
 
@@ -227,8 +238,8 @@ export function Map({
       type: 'geojson',
       data: {
         type: 'FeatureCollection',
-        features: features
-      }
+        features: features,
+      },
     });
 
     // Add shadow layer for geofences (depth effect)
@@ -240,8 +251,8 @@ export function Map({
       paint: {
         'fill-color': '#000000',
         'fill-opacity': 0.1,
-        'fill-translate': [2, 2]
-      }
+        'fill-translate': [2, 2],
+      },
     });
 
     // Add animated fill layer for geofences
@@ -251,44 +262,26 @@ export function Map({
       source: 'geofences',
       filter: ['==', ['geometry-type'], 'Polygon'],
       paint: {
-        'fill-color': [
-          'case',
-          ['==', ['get', 'type'], 'circle'], '#10b981',
-          '#3b82f6'
-        ],
-        'fill-opacity': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          10, 0.1,
-          15, 0.25,
-          18, 0.35
-        ]
-      }
+        'fill-color': ['case', ['==', ['get', 'type'], 'circle'], '#10b981', '#3b82f6'],
+        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.1, 15, 0.25, 18, 0.35],
+      },
     });
 
-    // Add animated outline layer for geofences  
+    // Add animated outline layer for geofences
     map.current!.addLayer({
       id: 'geofences-line',
       type: 'line',
       source: 'geofences',
-      filter: ['any', ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'LineString']],
+      filter: [
+        'any',
+        ['==', ['geometry-type'], 'Polygon'],
+        ['==', ['geometry-type'], 'LineString'],
+      ],
       paint: {
-        'line-color': [
-          'case',
-          ['==', ['get', 'type'], 'circle'], '#10b981',
-          '#3b82f6'
-        ],
-        'line-width': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          10, 1.5,
-          15, 2.5,
-          18, 3.5
-        ],
-        'line-opacity': 0.8
-      }
+        'line-color': ['case', ['==', ['get', 'type'], 'circle'], '#10b981', '#3b82f6'],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.5, 15, 2.5, 18, 3.5],
+        'line-opacity': 0.8,
+      },
     });
 
     // Add point layer for point geofences
@@ -298,18 +291,12 @@ export function Map({
       source: 'geofences',
       filter: ['all', ['==', ['geometry-type'], 'Point'], ['==', ['get', 'type'], 'point']],
       paint: {
-        'circle-radius': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          10, 3,
-          18, 8
-        ],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 18, 8],
         'circle-color': '#f59e0b',
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2,
-        'circle-opacity': 0.8
-      }
+        'circle-opacity': 0.8,
+      },
     });
 
     // Add circle layer for circle geofences (fixed size for simplicity)
@@ -319,19 +306,13 @@ export function Map({
       source: 'geofences',
       filter: ['all', ['==', ['geometry-type'], 'Point'], ['==', ['get', 'type'], 'circle']],
       paint: {
-        'circle-radius': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          10, 10,
-          18, 20
-        ],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 10, 18, 20],
         'circle-color': '#10b981',
         'circle-stroke-color': '#10b981',
         'circle-stroke-width': 2,
         'circle-opacity': 0.2,
-        'circle-stroke-opacity': 0.8
-      }
+        'circle-stroke-opacity': 0.8,
+      },
     });
 
     // Add hover highlight layer for lines/polygons
@@ -339,12 +320,16 @@ export function Map({
       id: 'geofences-highlight',
       type: 'line',
       source: 'geofences',
-      filter: ['all', ['any', ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'LineString']], ['==', ['get', 'id'], '']],
+      filter: [
+        'all',
+        ['any', ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'LineString']],
+        ['==', ['get', 'id'], ''],
+      ],
       paint: {
         'line-color': '#ffffff',
         'line-width': 4,
-        'line-opacity': 0
-      }
+        'line-opacity': 0,
+      },
     });
 
     // Add point highlight layer
@@ -354,18 +339,12 @@ export function Map({
       source: 'geofences',
       filter: ['all', ['==', ['geometry-type'], 'Point'], ['==', ['get', 'id'], '']],
       paint: {
-        'circle-radius': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          10, 6,
-          18, 12
-        ],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 6, 18, 12],
         'circle-color': '#ffffff',
         'circle-stroke-color': '#000000',
         'circle-stroke-width': 2,
-        'circle-opacity': 0.8
-      }
+        'circle-opacity': 0.8,
+      },
     });
 
     // Add selected geofence layer for lines/polygons
@@ -373,13 +352,17 @@ export function Map({
       id: 'geofences-selected',
       type: 'line',
       source: 'geofences',
-      filter: ['all', ['any', ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'LineString']], ['==', ['get', 'id'], '']],
+      filter: [
+        'all',
+        ['any', ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'LineString']],
+        ['==', ['get', 'id'], ''],
+      ],
       paint: {
         'line-color': '#ef4444',
         'line-width': 6,
         'line-opacity': 0.9,
-        'line-dasharray': [2, 2]
-      }
+        'line-dasharray': [2, 2],
+      },
     });
 
     // Add selected point layer
@@ -389,18 +372,12 @@ export function Map({
       source: 'geofences',
       filter: ['all', ['==', ['geometry-type'], 'Point'], ['==', ['get', 'id'], '']],
       paint: {
-        'circle-radius': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          10, 8,
-          18, 15
-        ],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 8, 18, 15],
         'circle-color': '#ef4444',
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 3,
-        'circle-opacity': 0.9
-      }
+        'circle-opacity': 0.9,
+      },
     });
 
     // Add selected geofence fill overlay
@@ -411,10 +388,9 @@ export function Map({
       filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['==', ['get', 'id'], '']],
       paint: {
         'fill-color': '#ef4444',
-        'fill-opacity': 0.1
-      }
+        'fill-opacity': 0.1,
+      },
     });
-
   }, [geofences]);
 
   const loadDevices = useCallback(() => {
@@ -422,31 +398,35 @@ export function Map({
 
     // Remove existing device markers
     const existingMarkers = document.querySelectorAll('.device-marker');
-    existingMarkers.forEach(marker => marker.remove());
+    existingMarkers.forEach((marker) => marker.remove());
 
     // Add enhanced device markers with animations
     devices.forEach((device, index) => {
       // Create device marker container
       const el = document.createElement('div');
-      el.className = 'device-marker relative cursor-pointer transform hover:scale-110 transition-all duration-300';
+      el.className =
+        'device-marker relative cursor-pointer transform hover:scale-110 transition-all duration-300';
 
       // Add pulsing animation for active devices
       const pulseRing = document.createElement('div');
-      pulseRing.className = `absolute inset-0 rounded-full border-2 ${device.isActive ? 'border-green-400 animate-ping' : 'border-transparent'
-        }`;
+      pulseRing.className = `absolute inset-0 rounded-full border-2 ${
+        device.isActive ? 'border-green-400 animate-ping' : 'border-transparent'
+      }`;
 
       // Main device icon
       const deviceIcon = document.createElement('div');
-      deviceIcon.className = `relative w-8 h-8 rounded-full border-3 border-white shadow-xl z-10 flex items-center justify-center text-white font-bold text-xs transition-all duration-300 ${device.isActive
+      deviceIcon.className = `relative w-8 h-8 rounded-full border-3 border-white shadow-xl z-10 flex items-center justify-center text-white font-bold text-xs transition-all duration-300 ${
+        device.isActive
           ? 'bg-gradient-to-br from-green-400 to-green-600 shadow-green-400/50'
           : 'bg-gradient-to-br from-gray-400 to-gray-600 shadow-gray-400/50'
-        }`;
+      }`;
       deviceIcon.textContent = device.name.charAt(0).toUpperCase();
 
       // Status indicator dot
       const statusDot = document.createElement('div');
-      statusDot.className = `absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white z-20 ${device.isActive ? 'bg-green-500' : 'bg-red-500'
-        }`;
+      statusDot.className = `absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white z-20 ${
+        device.isActive ? 'bg-green-500' : 'bg-red-500'
+      }`;
 
       // Assemble marker
       el.appendChild(pulseRing);
@@ -459,13 +439,13 @@ export function Map({
       const popup = new maplibregl.Popup({
         offset: 35,
         className: 'device-popup',
-        maxWidth: '300px'
-      })
-        .setHTML(`
-          <div class="p-4 bg-white rounded-lg shadow-xl border border-gray-200">
+        maxWidth: '300px',
+      }).setHTML(`
+          <div class="p-2 bg-white rounded-md shadow-xl border border-gray-200">
             <div class="flex items-center space-x-3 mb-3">
-              <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${device.isActive ? 'bg-green-500' : 'bg-gray-500'
-          }">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
+                device.isActive ? 'bg-green-500' : 'bg-gray-500'
+              }">
                 ${device.name.charAt(0).toUpperCase()}
               </div>
               <div>
@@ -489,7 +469,7 @@ export function Map({
               </div>
             </div>
             <div class="mt-3 pt-3 border-t border-gray-200">
-              <button class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+              <button class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium transition-colors">
                 View Details
               </button>
             </div>
@@ -519,29 +499,26 @@ export function Map({
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-
     // Initialize MapLibre GL map with configurable tiles
     const tileUrl = process.env.TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
     const tileKey = process.env.TILE_KEY;
 
     // Build tile URL with API key if provided
-    const tilesUrl = tileKey
-      ? tileUrl.replace('{key}', tileKey)
-      : tileUrl;
+    const tilesUrl = tileKey ? tileUrl.replace('{key}', tileKey) : tileUrl;
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: {
         version: 8,
         sources: {
-          'tiles': {
+          tiles: {
             type: 'raster',
             tiles: [tilesUrl],
             tileSize: 256,
             attribution: tileKey
               ? '© MapTiler © OpenStreetMap contributors'
-              : '© OpenStreetMap contributors'
-          }
+              : '© OpenStreetMap contributors',
+          },
         },
         layers: [
           {
@@ -554,10 +531,10 @@ export function Map({
               'raster-brightness-min': 0,
               'raster-brightness-max': 1,
               'raster-contrast': 0.3,
-              'raster-saturation': -0.2
-            }
-          }
-        ]
+              'raster-saturation': -0.2,
+            },
+          },
+        ],
       },
       center: [-122.4194, 37.7749], // San Francisco
       zoom: 13,
@@ -566,14 +543,14 @@ export function Map({
       attributionControl: false,
       logoPosition: 'bottom-left',
       maxZoom: 20,
-      minZoom: 8
+      minZoom: 8,
     });
 
     // Initialize Terra Draw with MapLibre adapter
     try {
       draw.current = new TerraDraw({
         adapter: new TerraDrawMapLibreGLAdapter({
-          map: map.current
+          map: map.current,
         }),
         modes: [
           new TerraDrawSelectMode({
@@ -586,11 +563,11 @@ export function Map({
                   coordinates: {
                     midpoints: true,
                     draggable: true,
-                    deletable: true
-                  }
-                }
-              }
-            }
+                    deletable: true,
+                  },
+                },
+              },
+            },
           }),
           new TerraDrawPolygonMode({
             styles: {
@@ -599,26 +576,26 @@ export function Map({
               outlineColor: '#3b82f6',
               outlineWidth: 2,
               closingPointColor: '#ef4444',
-              closingPointWidth: 4
-            }
+              closingPointWidth: 4,
+            },
           }),
           new TerraDrawCircleMode({
             styles: {
               fillColor: '#10b981',
               fillOpacity: 0.1,
               outlineColor: '#10b981',
-              outlineWidth: 2
-            }
+              outlineWidth: 2,
+            },
           }),
           new TerraDrawPointMode({
             styles: {
               pointColor: '#f59e0b',
               pointWidth: 8,
               pointOutlineColor: '#ffffff',
-              pointOutlineWidth: 2
-            }
-          })
-        ]
+              pointOutlineWidth: 2,
+            },
+          }),
+        ],
       });
       console.log('Terra Draw initialized successfully');
       setTerraDrawStatus('ready');
@@ -633,13 +610,13 @@ export function Map({
       if (callbacksRef.current.onGeofenceCreate && draw.current) {
         // Get the feature from the snapshot
         const features = draw.current.getSnapshot();
-        const feature = features.find(f => f.id === id);
+        const feature = features.find((f) => f.id === id);
 
         if (feature && feature.type === 'Feature') {
           if (feature.geometry.type === 'Polygon') {
             callbacksRef.current.onGeofenceCreate({
               type: 'polygon',
-              coordinates: feature.geometry.coordinates[0]
+              coordinates: feature.geometry.coordinates[0],
             });
           } else if (feature.geometry.type === 'Point') {
             const center = feature.geometry.coordinates as [number, number];
@@ -649,12 +626,12 @@ export function Map({
                 type: 'circle',
                 coordinates: [center],
                 center: center,
-                radius: radius
+                radius: radius,
               });
             } else {
               callbacksRef.current.onGeofenceCreate({
                 type: 'point',
-                coordinates: [center]
+                coordinates: [center],
               });
             }
           }
@@ -664,10 +641,10 @@ export function Map({
 
     draw.current.on('change', (ids, type) => {
       if (type === 'delete' && callbacksRef.current.onGeofenceDelete) {
-        ids.forEach(id => callbacksRef.current.onGeofenceDelete!(String(id)));
+        ids.forEach((id) => callbacksRef.current.onGeofenceDelete!(String(id)));
       } else if (type === 'update' && callbacksRef.current.onGeofenceUpdate) {
-        ids.forEach(id => {
-          const feature = draw.current?.getSnapshot().find(f => f.id === id);
+        ids.forEach((id) => {
+          const feature = draw.current?.getSnapshot().find((f) => f.id === id);
           if (feature) {
             callbacksRef.current.onGeofenceUpdate!(String(id), feature);
           }
@@ -676,28 +653,37 @@ export function Map({
     });
 
     // Add enhanced navigation controls
-    map.current.addControl(new maplibregl.NavigationControl({
-      showCompass: true,
-      showZoom: true,
-      visualizePitch: true
-    }), 'top-right');
+    map.current.addControl(
+      new maplibregl.NavigationControl({
+        showCompass: true,
+        showZoom: true,
+        visualizePitch: true,
+      }),
+      'top-right'
+    );
 
     // Add scale control
-    map.current.addControl(new maplibregl.ScaleControl({
-      maxWidth: 100,
-      unit: 'metric'
-    }), 'bottom-left');
+    map.current.addControl(
+      new maplibregl.ScaleControl({
+        maxWidth: 100,
+        unit: 'metric',
+      }),
+      'bottom-left'
+    );
 
     // Add fullscreen control
     map.current.addControl(new maplibregl.FullscreenControl(), 'top-right');
 
     // Add geolocate control
-    map.current.addControl(new maplibregl.GeolocateControl({
-      positionOptions: {
-        enableHighAccuracy: true
-      },
-      trackUserLocation: true,
-    }), 'top-right');
+    map.current.addControl(
+      new maplibregl.GeolocateControl({
+        positionOptions: {
+          enableHighAccuracy: true,
+        },
+        trackUserLocation: true,
+      }),
+      'top-right'
+    );
 
     // Add map interaction handlers
     map.current.on('style.load', () => {
@@ -753,7 +739,11 @@ export function Map({
         if (featureId !== undefined && featureId !== null && featureId !== '') {
           try {
             if (map.current!.getLayer('geofences-points-highlight')) {
-              map.current!.setFilter('geofences-points-highlight', ['==', ['get', 'id'], featureId]);
+              map.current!.setFilter('geofences-points-highlight', [
+                '==',
+                ['get', 'id'],
+                featureId,
+              ]);
             }
           } catch (error) {
             console.error('Error setting point hover filter:', error, 'ID:', featureId);
@@ -769,7 +759,11 @@ export function Map({
         if (featureId !== undefined && featureId !== null && featureId !== '') {
           try {
             if (map.current!.getLayer('geofences-points-highlight')) {
-              map.current!.setFilter('geofences-points-highlight', ['==', ['get', 'id'], featureId]);
+              map.current!.setFilter('geofences-points-highlight', [
+                '==',
+                ['get', 'id'],
+                featureId,
+              ]);
             }
           } catch (error) {
             console.error('Error setting circle hover filter:', error, 'ID:', featureId);
@@ -813,64 +807,27 @@ export function Map({
       }
     });
 
-    // Add geofence click handler for selection and zoom for polygons
+    // Add geofence click handler to open edit modal
     map.current.on('click', 'geofences-fill', (e) => {
       console.log('Geofence clicked, event:', e);
       if (e.features && e.features[0]) {
         const feature = e.features[0];
         // Try to get ID from feature.id first, then from properties as backup
         const geofenceId = feature.id?.toString() || feature.properties?.id?.toString();
-        console.log('Feature:', feature, 'ID from feature.id:', feature.id, 'ID from properties:', feature.properties?.id, 'Final ID:', geofenceId);
+        console.log(
+          'Feature:',
+          feature,
+          'ID from feature.id:',
+          feature.id,
+          'ID from properties:',
+          feature.properties?.id,
+          'Final ID:',
+          geofenceId
+        );
 
         if (geofenceId) {
-          // Select/deselect geofence
-          if (selectedGeofenceIdRef.current === geofenceId) {
-            // Deselect if already selected
-            console.log('Deselecting geofence:', geofenceId);
-            setSelectedGeofenceId(null);
-            if (map.current!.getLayer('geofences-selected')) {
-              map.current!.setFilter('geofences-selected', ['==', ['get', 'id'], '']);
-            }
-            if (map.current!.getLayer('geofences-selected-fill')) {
-              map.current!.setFilter('geofences-selected-fill', ['==', ['get', 'id'], '']);
-            }
-            if (map.current!.getLayer('geofences-selected-points')) {
-              map.current!.setFilter('geofences-selected-points', ['==', ['get', 'id'], '']);
-            }
-          } else {
-            // Select new geofence
-            console.log('Selecting geofence:', geofenceId);
-            setSelectedGeofenceId(geofenceId);
-            console.log('Setting filter for layers with ID:', geofenceId);
-
-            // Check if the layers exist before applying filters
-            if (map.current!.getLayer('geofences-selected')) {
-              map.current!.setFilter('geofences-selected', ['==', ['get', 'id'], geofenceId]);
-              console.log('Applied filter to geofences-selected layer');
-            } else {
-              console.error('Layer geofences-selected not found');
-            }
-            
-            if (map.current!.getLayer('geofences-selected-fill')) {
-              map.current!.setFilter('geofences-selected-fill', ['==', ['get', 'id'], geofenceId]);
-              console.log('Applied filter to geofences-selected-fill layer');
-            } else {
-              console.error('Layer geofences-selected-fill not found');
-            }
-          }
-        }
-
-        // Zoom to geofence
-        if (feature.geometry.type === 'Polygon') {
-          const coordinates = feature.geometry.coordinates[0] as [number, number][];
-          const bounds = new maplibregl.LngLatBounds();
-          coordinates.forEach(coord => bounds.extend(coord));
-
-          map.current!.fitBounds(bounds, {
-            padding: 100,
-            duration: 1000,
-            curve: 1.42
-          });
+          // Open edit modal for the clicked geofence
+          handleGeofenceEdit(geofenceId);
         }
       }
     });
@@ -882,26 +839,9 @@ export function Map({
         const geofenceId = feature.id?.toString() || (feature.properties as any)?.id?.toString();
 
         if (geofenceId) {
-          if (selectedGeofenceIdRef.current === geofenceId) {
-            setSelectedGeofenceId(null);
-            if (map.current!.getLayer('geofences-selected-points')) {
-              map.current!.setFilter('geofences-selected-points', ['==', ['get', 'id'], '']);
-            }
-          } else {
-            setSelectedGeofenceId(geofenceId);
-            if (map.current!.getLayer('geofences-selected-points')) {
-              map.current!.setFilter('geofences-selected-points', ['==', ['get', 'id'], geofenceId]);
-            }
-          }
+          // Open edit modal for the clicked geofence
+          handleGeofenceEdit(geofenceId);
         }
-
-        // Fly to point
-        const center = (feature.geometry as any).coordinates as [number, number];
-        map.current!.flyTo({
-          center,
-          zoom: 15,
-          duration: 1000
-        });
       }
     });
 
@@ -911,26 +851,9 @@ export function Map({
         const geofenceId = feature.id?.toString() || (feature.properties as any)?.id?.toString();
 
         if (geofenceId) {
-          if (selectedGeofenceIdRef.current === geofenceId) {
-            setSelectedGeofenceId(null);
-            if (map.current!.getLayer('geofences-selected-points')) {
-              map.current!.setFilter('geofences-selected-points', ['==', ['get', 'id'], '']);
-            }
-          } else {
-            setSelectedGeofenceId(geofenceId);
-            if (map.current!.getLayer('geofences-selected-points')) {
-              map.current!.setFilter('geofences-selected-points', ['==', ['get', 'id'], geofenceId]);
-            }
-          }
+          // Open edit modal for the clicked geofence
+          handleGeofenceEdit(geofenceId);
         }
-
-        // Fly to circle center
-        const center = (feature.geometry as any).coordinates as [number, number];
-        map.current!.flyTo({
-          center,
-          zoom: 14,
-          duration: 1000
-        });
       }
     });
 
@@ -940,12 +863,12 @@ export function Map({
       if (e.features && e.features[0] && e.features[0].geometry.type === 'Polygon') {
         const coordinates = e.features[0].geometry.coordinates[0] as [number, number][];
         const bounds = new maplibregl.LngLatBounds();
-        coordinates.forEach(coord => bounds.extend(coord));
+        coordinates.forEach((coord) => bounds.extend(coord));
 
         map.current!.fitBounds(bounds, {
           padding: 50,
           duration: 1200,
-          curve: 1.42
+          curve: 1.42,
         });
       }
     });
@@ -958,7 +881,7 @@ export function Map({
         map.current!.flyTo({
           center,
           zoom: 18,
-          duration: 1200
+          duration: 1200,
         });
       }
     });
@@ -974,7 +897,7 @@ export function Map({
         map.current!.flyTo({
           center,
           zoom,
-          duration: 1200
+          duration: 1200,
         });
       }
     });
@@ -987,7 +910,9 @@ export function Map({
         case 'f':
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
-            const searchInput = document.querySelector('input[placeholder="Search places..."]') as HTMLInputElement;
+            const searchInput = document.querySelector(
+              'input[placeholder="Search places..."]'
+            ) as HTMLInputElement;
             if (searchInput) {
               searchInput.focus();
               searchInput.select();
@@ -1024,16 +949,18 @@ export function Map({
           console.log('Delete key pressed, selectedGeofenceId:', selectedGeofenceIdRef.current);
           if (selectedGeofenceIdRef.current) {
             e.preventDefault();
-            const selectedGeofence = geofencesRef.current.find(g => g.id === selectedGeofenceIdRef.current);
+            const selectedGeofence = geofencesRef.current.find(
+              (g) => g.id === selectedGeofenceIdRef.current
+            );
             console.log('Found selected geofence for deletion:', selectedGeofence);
             if (selectedGeofence) {
               console.log('Setting delete confirmation dialog:', {
                 id: selectedGeofenceIdRef.current,
-                name: selectedGeofence.name
+                name: selectedGeofence.name,
               });
               setShowDeleteConfirmation({
                 id: selectedGeofenceIdRef.current!,
-                name: selectedGeofence.name
+                name: selectedGeofence.name,
               });
             }
           }
@@ -1127,8 +1054,8 @@ export function Map({
 
     const drawInstance = draw.current;
     const features = geofences
-      .filter(g => g.geometry && g.id !== undefined && g.id !== null && g.id !== '')
-      .map(geofence => {
+      .filter((g) => g.geometry && g.id !== undefined && g.id !== null && g.id !== '')
+      .map((geofence) => {
         const featureId = String(geofence.id);
         return {
           id: featureId,
@@ -1137,8 +1064,13 @@ export function Map({
           properties: {
             name: geofence.name,
             type: geofence.type,
-            mode: geofence.type === 'polygon' ? 'polygon' : geofence.type === 'circle' ? 'circle' : 'point'
-          }
+            mode:
+              geofence.type === 'polygon'
+                ? 'polygon'
+                : geofence.type === 'circle'
+                  ? 'circle'
+                  : 'point',
+          },
         };
       });
 
@@ -1182,9 +1114,92 @@ export function Map({
     }
   };
 
+  const handleGeofenceEdit = useCallback(
+    (geofenceId: string) => {
+      const geofence = geofences.find((g) => g.id === geofenceId);
+      if (geofence) {
+        setEditingGeofence(geofence);
+        setShowEditModal(true);
+      }
+    },
+    [geofences]
+  );
+
+  const handleEditModalClose = useCallback(() => {
+    setShowEditModal(false);
+    setEditingGeofence(null);
+  }, []);
+
+  const handleEditModalSave = useCallback(
+    async (id: string, updates: UpdateGeofenceRequest) => {
+      if (onGeofenceEdit) {
+        await onGeofenceEdit(id, updates);
+      }
+    },
+    [onGeofenceEdit]
+  );
+
+  const handleEditModalDelete = useCallback(
+    async (id: string) => {
+      onGeofenceDelete(id);
+    },
+    [onGeofenceDelete]
+  );
+
+  const handleGeofenceZoom = useCallback(
+    (geofence: FrontendGeofence) => {
+      if (!map.current || !geofence.geometry) return;
+
+      try {
+        switch (geofence.type) {
+          case 'polygon':
+            if (geofence.geometry.type === 'Polygon') {
+              const coordinates = geofence.geometry.coordinates[0] as [number, number][];
+              const bounds = new maplibregl.LngLatBounds();
+              coordinates.forEach((coord) => bounds.extend(coord));
+
+              map.current.fitBounds(bounds, {
+                padding: 100,
+                duration: 1000,
+                curve: 1.42,
+              });
+            }
+            break;
+
+          case 'circle':
+          case 'point':
+            if (geofence.geometry.type === 'Point') {
+              const center = geofence.geometry.coordinates as [number, number];
+              let zoom = 15;
+
+              // For circles, adjust zoom based on radius
+              if (geofence.type === 'circle' && geofence.radius) {
+                zoom = Math.max(12, 18 - Math.log(geofence.radius) / Math.LN2);
+              } else if (geofence.type === 'point') {
+                zoom = 18; // Closer zoom for points
+              }
+
+              map.current.flyTo({
+                center,
+                zoom,
+                duration: 1000,
+              });
+            }
+            break;
+        }
+
+        // Close the modal after zooming
+        handleEditModalClose();
+      } catch (error) {
+        console.error('Error zooming to geofence:', error);
+      }
+    },
+    [handleEditModalClose]
+  );
+
   return (
     <div className="relative h-full">
-      <div ref={mapContainer} className="h-full rounded-lg overflow-hidden" />
+      <div ref={mapContainer} className="h-full rounded-md overflow-hidden" />
 
       {/* Search Bar */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-64 z-10">
@@ -1200,12 +1215,12 @@ export function Map({
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
-                  setSelectedResultIndex(prev =>
+                  setSelectedResultIndex((prev) =>
                     prev < searchResults.length - 1 ? prev + 1 : prev
                   );
                 } else if (e.key === 'ArrowUp') {
                   e.preventDefault();
-                  setSelectedResultIndex(prev => prev > 0 ? prev - 1 : -1);
+                  setSelectedResultIndex((prev) => (prev > 0 ? prev - 1 : -1));
                 } else if (e.key === 'Enter') {
                   e.preventDefault();
                   if (selectedResultIndex >= 0 && selectedResultIndex < searchResults.length) {
@@ -1245,25 +1260,32 @@ export function Map({
 
           {/* Enhanced Search Results */}
           {showResults && searchResults.length > 0 && (
-            <div className="absolute top-full mt-1 w-full bg-white/95 backdrop-blur-md border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto z-30 animate-in slide-in-from-top-2 duration-300">
+            <div className="absolute top-full mt-1 w-full bg-white/95 backdrop-blur-md border border-gray-200 rounded-md shadow-lg max-h-64 overflow-y-auto z-30 animate-in slide-in-from-top-2 duration-300">
               {searchResults.map((result, index) => (
                 <button
                   key={index}
                   onClick={() => flyToLocation(result.center, result.place_name)}
-                  className={`w-full px-4 py-2 text-left border-b border-gray-100 last:border-b-0 focus:outline-none transition-all duration-200 first:rounded-t-lg last:rounded-b-lg group ${index === selectedResultIndex
+                  className={`w-full  text-left border-b border-gray-100 last:border-b-0 focus:outline-none transition-all duration-200 first:rounded-t-lg last:rounded-b-lg group ${
+                    index === selectedResultIndex
                       ? 'bg-blue-50 border-blue-200 shadow-sm'
                       : 'hover:bg-blue-50 hover:shadow-sm'
-                    }`}
+                  }`}
                 >
                   <div className="flex items-start space-x-2">
                     <div className="p-1 bg-blue-100 rounded group-hover:bg-blue-200 transition-colors">
                       <MapPin className="h-3 w-3 text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 truncate text-xs">{result.place_name.split(',')[0]}</p>
-                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{result.place_name}</p>
+                      <p className="font-semibold text-gray-900 truncate text-xs">
+                        {result.place_name.split(',')[0]}
+                      </p>
+                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
+                        {result.place_name}
+                      </p>
                       <div className="flex items-center mt-1 text-xs text-gray-500">
-                        <span className="bg-gray-100 px-1.5 py-0.5 rounded">{result.place_type?.[0] || 'Location'}</span>
+                        <span className="bg-gray-100 px-1.5 py-0.5 rounded">
+                          {result.place_type?.[0] || 'Location'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1277,12 +1299,21 @@ export function Map({
       {/* Terra Draw Status */}
       <div className="absolute top-4 left-4 bg-white rounded-md shadow-sm p-1.5">
         <div className="text-xs mb-1 flex items-center gap-1">
-          <div className={`w-2 h-2 rounded-full ${terraDrawStatus === 'ready' ? 'bg-green-500' :
-              terraDrawStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
-            }`}></div>
+          <div
+            className={`w-2 h-2 rounded-full ${
+              terraDrawStatus === 'ready'
+                ? 'bg-green-500'
+                : terraDrawStatus === 'error'
+                  ? 'bg-red-500'
+                  : 'bg-yellow-500'
+            }`}
+          ></div>
           <span className="font-medium text-xs">
-            {terraDrawStatus === 'ready' ? 'Terra Draw Ready' :
-              terraDrawStatus === 'error' ? 'Terra Draw Error' : 'Initializing...'}
+            {terraDrawStatus === 'ready'
+              ? 'Terra Draw Ready'
+              : terraDrawStatus === 'error'
+                ? 'Terra Draw Error'
+                : 'Initializing...'}
           </span>
         </div>
 
@@ -1291,10 +1322,11 @@ export function Map({
           <button
             onClick={() => setDrawingMode('select')}
             disabled={terraDrawStatus !== 'ready'}
-            className={`p-1.5 rounded text-xs font-medium transition-colors ${currentMode === 'select'
+            className={`p-1.5 rounded text-xs font-medium transition-colors ${
+              currentMode === 'select'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
             title="Select and edit"
           >
             ✋ Select
@@ -1302,10 +1334,11 @@ export function Map({
           <button
             onClick={() => setDrawingMode('polygon')}
             disabled={terraDrawStatus !== 'ready'}
-            className={`p-1.5 rounded text-xs font-medium transition-colors ${currentMode === 'polygon'
+            className={`p-1.5 rounded text-xs font-medium transition-colors ${
+              currentMode === 'polygon'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
             title="Draw polygon"
           >
             ⬟ Polygon
@@ -1313,10 +1346,11 @@ export function Map({
           <button
             onClick={() => setDrawingMode('circle')}
             disabled={terraDrawStatus !== 'ready'}
-            className={`p-1.5 rounded text-xs font-medium transition-colors ${currentMode === 'circle'
+            className={`p-1.5 rounded text-xs font-medium transition-colors ${
+              currentMode === 'circle'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
             title="Draw circle"
           >
             ⭕ Circle
@@ -1324,10 +1358,11 @@ export function Map({
           <button
             onClick={() => setDrawingMode('point')}
             disabled={terraDrawStatus !== 'ready'}
-            className={`p-1.5 rounded text-xs font-medium transition-colors ${currentMode === 'point'
+            className={`p-1.5 rounded text-xs font-medium transition-colors ${
+              currentMode === 'point'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${terraDrawStatus !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
             title="Add point"
           >
             📍 Point
@@ -1347,13 +1382,10 @@ export function Map({
 
       {/* Real-time Statistics Panel */}
       <div className="group relative absolute bottom-4 left-4 z-10">
-        <button
-          className="bg-white p-1 rounded shadow hover:bg-gray-100"
-          title="Live Status"
-        >
+        <button className="bg-white p-1 rounded shadow hover:bg-gray-100" title="Live Status">
           ●
         </button>
-        <div className="absolute bottom-full left-0 mb-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out transform -translate-y-2 group-hover:translate-y-0 bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-gray-200 p-2 text-xs min-w-32 z-10">
+        <div className="absolute bottom-full left-0 mb-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out transform -translate-y-2 group-hover:translate-y-0 bg-white/95 backdrop-blur-md rounded-md shadow-xl border border-gray-200 p-2 text-xs min-w-32 z-10">
           <div className="flex items-center gap-1 mb-1 pb-1 border-b border-gray-100">
             <div className="w-3 h-3 rounded bg-gradient-to-r from-green-500 to-blue-500"></div>
             <span className="font-semibold text-gray-900">Live Status</span>
@@ -1365,7 +1397,7 @@ export function Map({
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="font-semibold text-green-600">
-                  {devices?.filter(d => d.isActive).length || 0}
+                  {devices?.filter((d) => d.isActive).length || 0}
                 </span>
               </div>
             </div>
@@ -1392,13 +1424,10 @@ export function Map({
 
       {/* Enhanced Map Legend */}
       <div className="group relative absolute top-4 right-4 z-10">
-        <button
-          className="bg-white p-1 rounded shadow hover:bg-gray-100"
-          title="Map Legend"
-        >
+        <button className="bg-white p-1 rounded shadow hover:bg-gray-100" title="Map Legend">
           i
         </button>
-        <div className="absolute top-full left-0 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out transform translate-y-2 group-hover:translate-y-0 bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-gray-200 p-2 text-xs max-w-sm z-10">
+        <div className="absolute top-full left-0 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out transform translate-y-2 group-hover:translate-y-0 bg-white/95 backdrop-blur-md rounded-md shadow-xl border border-gray-200 p-2 text-xs max-w-sm z-10">
           <div className="flex items-center gap-1 mb-1 pb-1 border-b border-gray-100">
             <div className="w-3 h-3 rounded bg-gradient-to-r from-blue-500 to-purple-600"></div>
             <span className="font-semibold text-gray-900">Map Legend</span>
@@ -1453,13 +1482,10 @@ export function Map({
 
       {/* Keyboard Shortcuts Help */}
       <div className="group relative absolute bottom-4 right-4 z-10">
-        <button
-          className="bg-white p-1 rounded shadow hover:bg-gray-100"
-          title="Shortcuts"
-        >
+        <button className="bg-white p-1 rounded shadow hover:bg-gray-100" title="Shortcuts">
           ≡
         </button>
-        <div className="absolute bottom-full left-0 mb-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out transform -translate-y-2 group-hover:translate-y-0 bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-gray-200 p-2 text-xs max-w-sm z-10">
+        <div className="absolute bottom-full left-0 mb-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-in-out transform -translate-y-2 group-hover:translate-y-0 bg-white/95 backdrop-blur-md rounded-md shadow-xl border border-gray-200 p-2 text-xs max-w-sm z-10">
           <div className="flex items-center gap-1 mb-1 pb-1 border-b border-gray-100">
             <div className="w-3 h-3 rounded bg-gradient-to-r from-purple-500 to-pink-500"></div>
             <span className="font-semibold text-gray-900">Shortcuts</span>
@@ -1507,89 +1533,104 @@ export function Map({
       </div>
 
       {/* Selected Geofence Info Panel */}
-      {selectedGeofenceId && (() => {
-        console.log('Rendering selection panel for ID:', selectedGeofenceId);
-        console.log('Available geofences:', geofences.map(g => ({ id: g.id, name: g.name })));
-        const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-        console.log('Found selected geofence:', selectedGeofence);
-        if (!selectedGeofence) return null;
+      {selectedGeofenceId &&
+        (() => {
+          console.log('Rendering selection panel for ID:', selectedGeofenceId);
+          console.log(
+            'Available geofences:',
+            geofences.map((g) => ({ id: g.id, name: g.name }))
+          );
+          const selectedGeofence = geofences.find((g) => g.id === selectedGeofenceId);
+          console.log('Found selected geofence:', selectedGeofence);
+          if (!selectedGeofence) return null;
 
-        return (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 p-3 text-xs max-w-sm z-40 ml-20">
-            <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-gray-100">
-              <div className="w-3 h-3 rounded bg-gradient-to-r from-red-500 to-orange-500"></div>
-              <span className="font-semibold text-gray-900">Selected Geofence</span>
-            </div>
-
-            <div className="space-y-1">
-              <div>
-                <span className="font-medium text-gray-700">Name:</span>
-                <p className="text-gray-900 font-semibold">{selectedGeofence.name}</p>
+          return (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-md rounded-md shadow-lg border border-gray-200 p-3 text-xs max-w-sm z-40 ml-20">
+              <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-gray-100">
+                <div className="w-3 h-3 rounded bg-gradient-to-r from-red-500 to-orange-500"></div>
+                <span className="font-semibold text-gray-900">Selected Geofence</span>
               </div>
 
-              <div>
-                <span className="font-medium text-gray-700">Type:</span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className={`w-2 h-1 rounded-full ${selectedGeofence.type === 'circle' ? 'bg-green-500' : 'bg-blue-500'
-                    }`}></div>
-                  <span className="text-gray-600 capitalize">{selectedGeofence.type}</span>
+              <div className="space-y-1">
+                <div>
+                  <span className="font-medium text-gray-700">Name:</span>
+                  <p className="text-gray-900 font-semibold">{selectedGeofence.name}</p>
+                </div>
+
+                <div>
+                  <span className="font-medium text-gray-700">Type:</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <div
+                      className={`w-2 h-1 rounded-full ${
+                        selectedGeofence.type === 'circle' ? 'bg-green-500' : 'bg-blue-500'
+                      }`}
+                    ></div>
+                    <span className="text-gray-600 capitalize">{selectedGeofence.type}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 mt-2">
+                  <button
+                    onClick={() => {
+                      console.log('Delete button clicked, selectedGeofenceId:', selectedGeofenceId);
+                      const selectedGeofence = geofences.find((g) => g.id === selectedGeofenceId);
+                      console.log('Found geofence for deletion:', selectedGeofence);
+                      if (selectedGeofence) {
+                        console.log('Setting delete confirmation dialog from button');
+                        setShowDeleteConfirmation({
+                          id: selectedGeofenceId,
+                          name: selectedGeofence.name,
+                        });
+                      } else {
+                        console.error('Could not find geofence to delete');
+                      }
+                    }}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-2 rounded-md text-xs font-medium transition-colors"
+                  >
+                    🗑️ Delete
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSelectedGeofenceId(null);
+                      if (map.current!.getLayer('geofences-selected')) {
+                        map.current!.setFilter('geofences-selected', ['==', ['get', 'id'], '']);
+                      }
+                      if (map.current!.getLayer('geofences-selected-fill')) {
+                        map.current!.setFilter('geofences-selected-fill', [
+                          '==',
+                          ['get', 'id'],
+                          '',
+                        ]);
+                      }
+                      if (map.current!.getLayer('geofences-selected-points')) {
+                        map.current!.setFilter('geofences-selected-points', [
+                          '==',
+                          ['get', 'id'],
+                          '',
+                        ]);
+                      }
+                    }}
+                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-1.5 px-2 rounded-md text-xs font-medium transition-colors"
+                  >
+                    ✕ Deselect
+                  </button>
                 </div>
               </div>
 
-              <div className="flex gap-1.5 mt-2">
-                <button
-                  onClick={() => {
-                    console.log('Delete button clicked, selectedGeofenceId:', selectedGeofenceId);
-                    const selectedGeofence = geofences.find(g => g.id === selectedGeofenceId);
-                    console.log('Found geofence for deletion:', selectedGeofence);
-                    if (selectedGeofence) {
-                      console.log('Setting delete confirmation dialog from button');
-                      setShowDeleteConfirmation({
-                        id: selectedGeofenceId,
-                        name: selectedGeofence.name
-                      });
-                    } else {
-                      console.error('Could not find geofence to delete');
-                    }
-                  }}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-1.5 px-2 rounded-md text-xs font-medium transition-colors"
-                >
-                  🗑️ Delete
-                </button>
-
-                <button
-                  onClick={() => {
-                    setSelectedGeofenceId(null);
-                    if (map.current!.getLayer('geofences-selected')) {
-                      map.current!.setFilter('geofences-selected', ['==', ['get', 'id'], '']);
-                    }
-                    if (map.current!.getLayer('geofences-selected-fill')) {
-                      map.current!.setFilter('geofences-selected-fill', ['==', ['get', 'id'], '']);
-                    }
-                    if (map.current!.getLayer('geofences-selected-points')) {
-                      map.current!.setFilter('geofences-selected-points', ['==', ['get', 'id'], '']);
-                    }
-                  }}
-                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-1.5 px-2 rounded-md text-xs font-medium transition-colors"
-                >
-                  ✕ Deselect
-                </button>
+              <div className="mt-2 pt-1.5 border-t border-gray-100 text-xs text-gray-500">
+                <div className="flex items-center gap-1">
+                  <span>Press Del to delete • Esc to deselect</span>
+                </div>
               </div>
             </div>
-
-            <div className="mt-2 pt-1.5 border-t border-gray-100 text-xs text-gray-500">
-              <div className="flex items-center gap-1">
-                <span>Press Del to delete • Esc to deselect</span>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirmation && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
-          <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm mx-4">
+          <div className="bg-white rounded-md shadow-lg border border-gray-200 p-2 max-w-sm mx-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                 <div className="w-5 h-5 text-red-600">🗑️</div>
@@ -1603,7 +1644,10 @@ export function Map({
             <div className="bg-gray-50 rounded-md p-2 mb-3">
               <p className="text-xs text-gray-700">
                 Are you sure you want to delete{' '}
-                <span className="font-semibold text-gray-900">&ldquo;{showDeleteConfirmation.name}&rdquo;</span>?
+                <span className="font-semibold text-gray-900">
+                  &ldquo;{showDeleteConfirmation.name}&rdquo;
+                </span>
+                ?
               </p>
             </div>
 
@@ -1639,6 +1683,16 @@ export function Map({
           </div>
         </div>
       )}
+
+      {/* Geofence Edit Modal */}
+      <GeofenceEditModal
+        geofence={editingGeofence}
+        isOpen={showEditModal}
+        onClose={handleEditModalClose}
+        onSave={handleEditModalSave}
+        onDelete={handleEditModalDelete}
+        onZoom={handleGeofenceZoom}
+      />
     </div>
   );
 }

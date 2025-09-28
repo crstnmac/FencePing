@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { query as dbQuery } from '@geofence/db';
+import { compareSync, hashSync } from 'bcryptjs';
 import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
-import { compareSync, hashSync } from 'bcryptjs';
 
 const router = Router();
 

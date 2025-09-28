@@ -5,7 +5,9 @@
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "mcp__better-auth__search",
+      "Bash(npx @better-auth/cli generate:*)"
     ],
     "deny": [],
     "ask": []

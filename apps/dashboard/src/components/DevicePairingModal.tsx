@@ -3,15 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { X, QrCode, Copy, RefreshCw, CheckCircle, AlertCircle, Smartphone } from 'lucide-react';
-import {
-  useGeneratePairingCode,
-  useCompletePairing,
-  usePairingStatus
-} from '../hooks/useApi';
-import {
-  type PairingCodeResponse,
-  type PairingRequest
-} from '../services/api';
+import { useGeneratePairingCode, useCompletePairing, usePairingStatus } from '../hooks/useApi';
+import { type PairingCodeResponse, type PairingRequest } from '../services/api';
 
 // QR Code generation library (we'll use a simple implementation)
 const generateQRCode = (text: string): string => {
@@ -35,14 +28,16 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
 
   const generatePairingCodeMutation = useGeneratePairingCode();
   const completePairingMutation = useCompletePairing();
-  const { data: statusData, isLoading: statusLoading } = usePairingStatus(pairingCode?.pairingCode || null);
+  const { data: statusData, isLoading: statusLoading } = usePairingStatus(
+    pairingCode?.pairingCode || null
+  );
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const isGeneratingRef = useRef(false);
 
   // Memoize generateNewPairingCode function to prevent useEffect re-runs
   const generateNewPairingCode = useCallback(async () => {
     if (isGeneratingRef.current) return; // Prevent multiple simultaneous generations
-    
+
     isGeneratingRef.current = true;
     try {
       const result = await generatePairingCodeMutation.mutateAsync();
@@ -70,7 +65,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
     }
 
     countdownRef.current = setTimeout(() => {
-      setCountdown(prev => prev - 1);
+      setCountdown((prev) => prev - 1);
     }, 1000);
 
     return () => {
@@ -95,7 +90,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
         type: 'device_pairing',
         pairingCode: pairingCode.pairingCode,
         accountId: 'current-account', // This should come from auth context
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
       setQrCodeUrl(generateQRCode(qrData));
     } else {
@@ -103,19 +98,19 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
     }
   }, [pairingCode]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setPairingCode(null);
     setCopySuccess(false);
     setCountdown(0);
     setShowQR(false);
     setQrCodeUrl('');
     onClose();
-  };
+  }, [onClose]);
 
-  const handleSuccess = () => {
+  const handleSuccess = useCallback(() => {
     onSuccess();
     handleClose();
-  };
+  }, [onSuccess, handleClose]);
 
   // Auto-complete pairing if status is 'used'
   useEffect(() => {
@@ -143,14 +138,11 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg p-4 w-full max-w-md">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 z-50">
+      <div className="bg-white rounded-md p-2 w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-medium">Device Pairing</h3>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -167,11 +159,9 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
 
             {pairingCode ? (
               <div className="space-y-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="p-2 bg-blue-50 rounded-md">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-600">
-                      Pairing Code
-                    </span>
+                    <span className="text-sm font-medium text-gray-600">Pairing Code</span>
                     <div className="flex items-center space-x-2">
                       <span className="text-xs text-gray-500">
                         Expires in: {formatCountdown(countdown)}
@@ -181,7 +171,9 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
                         className="text-gray-400 hover:text-gray-600"
                         disabled={generatePairingCodeMutation.isPending}
                       >
-                        <RefreshCw className={`h-4 w-4 ${generatePairingCodeMutation.isPending ? 'animate-spin' : ''}`} />
+                        <RefreshCw
+                          className={`h-4 w-4 ${generatePairingCodeMutation.isPending ? 'animate-spin' : ''}`}
+                        />
                       </button>
                     </div>
                   </div>
@@ -210,7 +202,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
                 <div className="flex justify-center">
                   <button
                     onClick={() => setShowQR(!showQR)}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    className="flex items-center space-x-2  bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                   >
                     <QrCode className="h-4 w-4" />
                     <span>{showQR ? 'Hide' : 'Show'} QR Code</span>
@@ -219,7 +211,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
 
                 {/* QR Code Display */}
                 {showQR && qrCodeUrl && (
-                  <div className="flex flex-col items-center space-y-2 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex flex-col items-center space-y-2 p-2 bg-gray-50 rounded-md">
                     <Image
                       src={qrCodeUrl}
                       alt="Pairing QR Code"
@@ -235,13 +227,17 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
               </div>
             ) : (
               <div className="text-center py-8">
-                <RefreshCw className={`h-8 w-8 animate-spin text-blue-600 mx-auto mb-4 ${!generatePairingCodeMutation.isPending ? 'hidden' : ''}`} />
+                <RefreshCw
+                  className={`h-8 w-8 animate-spin text-blue-600 mx-auto mb-4 ${!generatePairingCodeMutation.isPending ? 'hidden' : ''}`}
+                />
                 <button
                   onClick={generateNewPairingCode}
                   disabled={generatePairingCodeMutation.isPending}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {generatePairingCodeMutation.isPending ? 'Generating...' : 'Generate Pairing Code'}
+                  {generatePairingCodeMutation.isPending
+                    ? 'Generating...'
+                    : 'Generate Pairing Code'}
                 </button>
               </div>
             )}
@@ -263,7 +259,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
               <span>Connect your device</span>
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-2 bg-gray-50 rounded-md">
               <div className="text-sm text-gray-600 space-y-2">
                 <p>On your device:</p>
                 <ol className="list-decimal list-inside space-y-1 ml-2">
@@ -288,7 +284,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
                 href="https://play.google.com/store/apps/details?id=com.geofence.device"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                className="flex items-center justify-center space-x-2  bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
               >
                 <span className="text-sm">Android</span>
               </a>
@@ -296,7 +292,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
                 href="https://apps.apple.com/app/geofence-device/id123456789"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center space-x-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                className="flex items-center justify-center space-x-2  bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
               >
                 <span className="text-sm">iOS</span>
               </a>
@@ -307,7 +303,7 @@ export function DevicePairingModal({ isOpen, onClose, onSuccess }: DevicePairing
           <div className="flex justify-end pt-4">
             <button
               onClick={handleClose}
-              className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
               Close
             </button>
@@ -358,14 +354,13 @@ export function DevicePairingCompletion({ pairingCode }: { pairingCode: string }
 
       // Store tokens (in real app, this would be handled by the device app)
       console.log('Pairing successful:', result);
-
     } catch (error) {
       console.error('Pairing failed:', error);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto p-6">
+    <div className="max-w-md mx-auto p-3">
       <div className="text-center mb-6">
         <h2 className="text-xl font-semibold">Complete Device Pairing</h2>
         <p className="text-gray-600 mt-2">Enter your device information to complete the pairing</p>
@@ -373,54 +368,48 @@ export function DevicePairingCompletion({ pairingCode }: { pairingCode: string }
 
       <form onSubmit={handleCompletePairing} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Device Name *
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Device Name *</label>
           <input
             type="text"
             required
             value={deviceInfo.name}
-            onChange={(e) => setDeviceInfo(prev => ({ ...prev, name: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => setDeviceInfo((prev) => ({ ...prev, name: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="My IoT Device"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Device Model
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Device Model</label>
           <input
             type="text"
             value={deviceInfo.deviceModel}
-            onChange={(e) => setDeviceInfo(prev => ({ ...prev, deviceModel: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => setDeviceInfo((prev) => ({ ...prev, deviceModel: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Raspberry Pi 4"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Firmware Version
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Firmware Version</label>
           <input
             type="text"
             value={deviceInfo.deviceFirmwareVersion}
-            onChange={(e) => setDeviceInfo(prev => ({ ...prev, deviceFirmwareVersion: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) =>
+              setDeviceInfo((prev) => ({ ...prev, deviceFirmwareVersion: e.target.value }))
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="1.2.3"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Operating System
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Operating System</label>
           <input
             type="text"
             value={deviceInfo.deviceOs}
-            onChange={(e) => setDeviceInfo(prev => ({ ...prev, deviceOs: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => setDeviceInfo((prev) => ({ ...prev, deviceOs: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Ubuntu 22.04"
           />
         </div>
@@ -428,7 +417,7 @@ export function DevicePairingCompletion({ pairingCode }: { pairingCode: string }
         <button
           type="submit"
           disabled={completePairingMutation.isPending}
-          className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
+          className="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
         >
           {completePairingMutation.isPending ? (
             <>

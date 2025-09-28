@@ -207,8 +207,8 @@ export class AutomationProcessor {
         SELECT g.id, g.name, g.type
         FROM geofences g
         WHERE g.account_id = $1
-          AND g.is_active = true
-          AND ST_Contains(g.geometry, ST_SetSRID(ST_MakePoint($2, $3), 4326))
+          AND g.active = true
+          AND ST_Contains(g.geom, ST_SetSRID(ST_MakePoint($2, $3), 4326))
       `, [event.accountId, event.lon, event.lat]);
 
       // Get previous location state for this device

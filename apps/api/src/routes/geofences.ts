@@ -129,9 +129,9 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema)
     if (req.body.type === 'circle') {
       const { center, radius } = req.body;
       queryText = `
-        INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata)
-        VALUES ($1, $2, $3, ST_Buffer(ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography, $6)::geometry, $7, $8)
-        RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at
+        INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata, radius_m)
+        VALUES ($1, $2, $3, ST_Buffer(ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography, $6)::geometry, $7, $8, $6)
+        RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at, radius_m
       `;
       queryParams = [
         req.body.name,
@@ -155,9 +155,9 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema)
       };
       
       queryText = `
-        INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata)
-        VALUES ($1, $2, $3, ST_GeomFromGeoJSON($4), $5, $6)
-        RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at
+        INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata, radius_m)
+        VALUES ($1, $2, $3, ST_GeomFromGeoJSON($4), $5, $6, NULL)
+        RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at, radius_m
       `;
       queryParams = [
         req.body.name,
@@ -170,9 +170,9 @@ router.post('/', requireAuth, requireAccount, validateBody(CreateGeofenceSchema)
     } else if (req.body.type === 'point') {
       const coord = req.body.coordinates[0];
       queryText = `
-        INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata)
-        VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6, $7)
-        RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at
+        INSERT INTO geofences (name, description, account_id, geometry, geofence_type, metadata, radius_m)
+        VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6, $7, NULL)
+        RETURNING id, name, description, geofence_type, ST_AsGeoJSON(geometry) as geometry_geojson, metadata, is_active, created_at, radius_m
       `;
       queryParams = [
         req.body.name,

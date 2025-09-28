@@ -13,11 +13,12 @@ import { fileURLToPath } from 'url';
 import { errorHandler } from './middleware/errorHandler.js';
 import { trackConnectionUsage, getConnectionPoolStatus, cleanupConnectionTracker } from './middleware/connections.js';
 import { authRoutes } from './routes/auth.js';
+import { auth as authConfig } from '../auth.js';
+import { toNodeHandler, fromNodeHeaders } from 'better-auth/node';
 import { deviceRoutes } from './routes/devices.js';
 import deviceGroupsRouter from './routes/deviceGroups.js';
 import { geofenceRoutes } from './routes/geofences.js';
 import { eventRoutes } from './routes/events.js';
-import { integrationRoutes } from './routes/integrations.js';
 import { automationRoutes, automationRulesRoutes } from './routes/automations.js';
 import { settingsRoutes } from './routes/settings.js';
 import { analyticsRoutes } from './routes/analytics.js';
@@ -70,7 +71,7 @@ app.use(compression());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
 }));
 
@@ -91,10 +92,13 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Apply strict limiting to auth endpoints
-app.use('/api/auth', strictLimiter);
-// Apply general limiting to other API endpoints
-app.use('/api/', generalLimiter);
+// // Apply strict limiting to auth endpoints
+// app.use('/api/auth', strictLimiter);
+// // Apply general limiting to other API endpoints
+// app.use('/api/', generalLimiter);
+
+app.all('/api/auth/*', toNodeHandler(authConfig));
+
 
 app.use(morgan('combined'));
 app.use(cookieParser());
@@ -131,12 +135,12 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Custom auth routes (for legacy compatibility)
 app.use('/api/auth', authRoutes);
 app.use('/api/devices', deviceRoutes);
 app.use('/api/device-groups', deviceGroupsRouter);
 app.use('/api/geofences', geofenceRoutes);
 app.use('/api/events', eventRoutes);
-app.use('/api/integrations', integrationRoutes);
 app.use('/api/automations', automationRoutes);
 app.use('/api/automation-rules', automationRulesRoutes);
 app.use('/api/settings', settingsRoutes);

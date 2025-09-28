@@ -1,4 +1,4 @@
-import { authService } from './auth';
+// Better Auth integration for API calls
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -16,37 +16,16 @@ async function apiRequest<T>(
 ): Promise<T> {
   console.log('🔑 API Request:', endpoint);
 
-  // In development, provide organization header fallback for backwards compatibility
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const token = authService.getStoredToken();
+  // Better Auth will handle authentication automatically
+  const headers = new Headers(options.headers as HeadersInit);
+  headers.set('Content-Type', 'application/json');
 
   try {
-    let response: Response;
-    
-    if (token) {
-      // Use authenticated fetch with automatic token refresh
-      response = await authService.makeAuthenticatedRequest(`${apiUrl}${endpoint}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-      });
-    } else {
-      // Unauthenticated request
-      const headers = new Headers(options.headers as HeadersInit);
-      headers.set('Content-Type', 'application/json');
-      
-      if (isDevelopment) {
-        headers.set('x-dev-mode', 'true');
-        console.log('🔑 Added dev-mode header');
-      }
-
-      response = await fetch(`${apiUrl}${endpoint}`, {
-        ...options,
-        headers,
-      });
-    }
+    const response = await fetch(`${apiUrl}${endpoint}`, {
+      ...options,
+      headers,
+      credentials: 'include', // Important for Better Auth cookies
+    });
 
     const data = await response.json();
 
@@ -314,22 +293,9 @@ export interface EventsResponse {
   };
 }
 
-// Geofence Types
-export interface Geofence {
-  id: string;
-  name: string;
-  description?: string;
-  geofence_type: 'polygon' | 'circle' | 'point';
-  geometry: {
-    type: string;
-    coordinates: number[][] | number[] | number[][][];
-  };
-  metadata?: Record<string, any>;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  radius_m?: number;
-}
+// Geofence Types (imported from professional types)
+import { BackendGeofence, CreateGeofenceRequest, UpdateGeofenceRequest } from '../types/geofence';
+export type Geofence = BackendGeofence;
 
 // Automation Types (basic structure for now)
 export interface Automation {
@@ -421,18 +387,7 @@ export interface AnalyticsResponse {
   data: AnalyticsData;
 }
 
-// Integration Types
-export interface Integration {
-  id: string;
-  name: string; // From automation
-  url: string;
-  status: 'active' | 'inactive';
-  is_active: boolean;
-  headers?: Record<string, string>;
-  automation_id: string;
-  created_at: string;
-  updated_at: string;
-}
+// REMOVED: Integration types - use Automation types instead
 
 // API Services
 export const dashboardService = {
@@ -1063,53 +1018,48 @@ export const analyticsService = {
   }
 };
 
-// Integration service
+// DEPRECATED: integrationService removed - use automationService directly
+// This is a compatibility shim that redirects to automationService
 export const integrationService = {
-  // Get all integrations
-  async getIntegrations(): Promise<Integration[]> {
-    try {
-      const response = await apiRequest<{ data: Integration[]; total: number }>('/api/integrations');
-      return response.data || [];
-    } catch (error) {
-      console.warn('Integrations endpoint not available:', error);
-      return [];
+  async getIntegrations() {
+    console.warn('integrationService.getIntegrations() is deprecated. Use automationService.getAutomations() instead.');
+    return automationService.getAutomations();
+  },
+  
+  async getIntegration(id: string) {
+    console.warn('integrationService.getIntegration() is deprecated. Use automationService.getAutomation() instead.');
+    return automationService.getAutomation(id);
+  },
+  
+  async createIntegration(data: any) {
+    console.warn('integrationService.createIntegration() is deprecated. Use automationService.createAutomation() instead.');
+    return automationService.createAutomation({
+      name: data.name || 'Webhook Automation',
+      kind: 'webhook',
+      config: {
+        url: data.url,
+        headers: data.headers || {}
+      },
+      enabled: data.is_active !== false
+    });
+  },
+  
+  async updateIntegration(id: string, updates: any) {
+    console.warn('integrationService.updateIntegration() is deprecated. Use automationService.updateAutomation() instead.');
+    const automationUpdates: any = {};
+    if (updates.name) automationUpdates.name = updates.name;
+    if (updates.is_active !== undefined) automationUpdates.enabled = updates.is_active;
+    if (updates.url || updates.headers) {
+      automationUpdates.config = {
+        url: updates.url,
+        headers: updates.headers || {}
+      };
     }
+    return automationService.updateAutomation(id, automationUpdates);
   },
-
-  // Get specific webhook integration
-  async getIntegration(integrationId: string): Promise<Integration> {
-    const response = await apiRequest<{ data: Integration }>(`/api/integrations/${integrationId}`);
-    return response.data;
-  },
-
-  // Create webhook integration
-  async createIntegration(webhookData: { automation_id: string; url: string; headers?: Record<string, string>; is_active?: boolean }): Promise<Integration> {
-    const payload = {
-      automationId: webhookData.automation_id,
-      url: webhookData.url,
-      headers: webhookData.headers
-    };
-    const response = await apiRequest<{ data: Integration }>('/api/integrations', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    return response.data;
-  },
-
-  // Update webhook integration
-  async updateIntegration(integrationId: string, updates: Partial<Integration>): Promise<Integration> {
-    const response = await apiRequest<{ data: Integration }>(`/api/integrations/${integrationId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    });
-    return response.data;
-  },
-
-  // Delete webhook integration
-  async deleteIntegration(integrationId: string): Promise<void> {
-    await apiRequest(`/api/integrations/${integrationId}`, {
-      method: 'DELETE',
-    });
-  },
-
+  
+  async deleteIntegration(id: string) {
+    console.warn('integrationService.deleteIntegration() is deprecated. Use automationService.deleteAutomation() instead.');
+    return automationService.deleteAutomation(id);
+  }
 };

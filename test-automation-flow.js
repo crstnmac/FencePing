@@ -95,11 +95,11 @@ class AutomationFlowTester {
 
     // 1. Create test account
     const accountResult = await this.dbPool.query(`
-      INSERT INTO accounts (id, name, email, created_at)
-      VALUES ($1, $2, $3, NOW())
-      ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
-      RETURNING id, name, email
-    `, [uuidv4(), 'Test Account', 'test@example.com']);
+      INSERT INTO accounts (id, name, created_at)
+      VALUES ($1, $2, NOW())
+      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+      RETURNING id, name
+    `, [uuidv4(), 'Test Account']);
     
     this.testData.account = accountResult.rows[0];
     console.log(`✅ Created test account: ${this.testData.account.name} (${this.testData.account.id})`);

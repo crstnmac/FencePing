@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Header } from '../../components/Header';
 import { toast } from 'react-hot-toast';
-import {useTestAutomation, useDeliveries, useAutomationRules, useToggleAutomationRule, useDeleteAutomationRule } from '../../hooks/useApi';
+import { useTestAutomation, useDeliveries, useAutomations, useAutomationRules, useToggleAutomationRule, useDeleteAutomationRule } from '../../hooks/useApi';
 import {
   Plus,
   Search,
@@ -19,14 +19,18 @@ import {
   XCircle,
   AlertCircle,
   Filter,
-  Settings
+  Settings,
+  Activity
 } from 'lucide-react';
 import { AutomationRuleModal } from '@/components/AutomationRuleModal';
+import { AutomationWizard } from '@/components/AutomationWizard';
+import { DeliveryMonitor } from '@/components/DeliveryMonitor';
 import { useSocket } from '../../providers/SocketProvider';
 
 export default function AutomationsPage() {
   // API state management with React Query
   const { data: rules = [], isLoading, error, refetch } = useAutomationRules();
+  const { data: automations = [], isLoading: automationsLoading } = useAutomations();
   const { socket, isConnected } = useSocket();
   const toggleRuleMutation = useToggleAutomationRule();
   const deleteRuleMutation = useDeleteAutomationRule();
@@ -37,6 +41,8 @@ export default function AutomationsPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [filterTrigger, setFilterTrigger] = useState<'all' | 'enter' | 'exit' | 'dwell'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
+  const [showDeliveryMonitor, setShowDeliveryMonitor] = useState(false);
   const [selectedRule, setSelectedRule] = useState<any>(null);
 
   const filteredRules = rules.filter(rule => {
@@ -110,19 +116,21 @@ export default function AutomationsPage() {
   // Error handling
   if (error) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full bg-neutral-50">
         <Header
           title="Automations"
           subtitle="Manage your geofence automation rules and webhooks"
         />
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load automations</h3>
-            <p className="text-gray-600">There was an error loading automation data.</p>
+        <div className="flex-1 flex items-center justify-center p-3">
+          <div className="text-center max-w-md">
+            <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="h-8 w-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-medium text-neutral-900 mb-3">Failed to load automations</h3>
+            <p className="text-neutral-600 leading-relaxed mb-6">There was an error loading automation data.</p>
             <button
               onClick={() => refetch()}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-6 py-3 bg-neutral-900 text-white font-medium rounded-md hover:bg-neutral-800 transition-colors duration-150"
             >
               Try Again
             </button>
@@ -133,62 +141,64 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-neutral-50">
       <Header
         title="Automations"
         subtitle="Manage your geofence automation rules and webhooks"
       />
 
       <div className="flex-1 overflow-auto p-3">
-        {/* Navigation Links */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+        {/* Quick Actions */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-md p-3 mb-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Settings className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900">Integration Setup</span>
+            <div>
+              <h3 className="text-lg font-medium text-blue-900 mb-2">Complete Automation Setup</h3>
+              <p className="text-sm text-blue-700 leading-relaxed">
+                Create automations with webhooks, Slack, Notion, Sheets, and WhatsApp integrations
+              </p>
             </div>
-            <a 
-              href="/integrations" 
-              className="text-sm text-blue-600 hover:text-blue-800 underline"
+            <button
+              onClick={() => setShowWizard(true)}
+              className="flex items-center gap-3 bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors duration-150 font-medium"
             >
-              Manage Integrations →
-            </a>
+              <Plus className="h-5 w-5" />
+              New Automation
+            </button>
           </div>
-          <p className="text-xs text-blue-700 mt-1">
-            Configure webhook endpoints and third-party integrations for your automations
-          </p>
         </div>
 
         {/* Header Actions */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-3">
-          <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-8">
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-3.5 w-3.5" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-400 h-5 w-5" />
               <input
                 type="text"
                 placeholder="Search automations..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm((e.target as HTMLInputElement).value)}
-                className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                className="pl-12 pr-4 py-3 border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-300 focus:border-neutral-300 text-sm bg-white"
               />
             </div>
 
-            <div className="flex items-center space-x-1.5">
-              <Filter className="h-3.5 w-3.5 text-gray-500" />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus((e.target as HTMLSelectElement).value as any)}
-                className="border border-gray-300 rounded-md px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-neutral-500" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus((e.target as HTMLSelectElement).value as any)}
+                  className="border border-neutral-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-300 bg-white"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
 
               <select
                 value={filterTrigger}
                 onChange={(e) => setFilterTrigger((e.target as HTMLSelectElement).value as any)}
-                className="border border-gray-300 rounded-md px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="border border-neutral-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-300 bg-white"
               >
                 <option value="all">All Triggers</option>
                 <option value="enter">Enter</option>
@@ -198,71 +208,87 @@ export default function AutomationsPage() {
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              setSelectedRule(null);
-              setShowCreateModal(true);
-            }}
-            className="flex items-center gap-1.5 bg-blue-600 text-white px-2.5 py-1.5 rounded-md hover:bg-blue-700 transition-all duration-200 text-xs"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Create Rule
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowWizard(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-150 font-medium"
+            >
+              <Plus className="h-5 w-5" />
+              New Automation
+            </button>
+            <button
+              onClick={() => {
+                setSelectedRule(null);
+                setShowCreateModal(true);
+              }}
+              className="flex items-center gap-2 bg-neutral-600 text-white px-3 py-2 rounded-md hover:bg-neutral-700 transition-colors duration-150 font-medium"
+            >
+              <Plus className="h-5 w-5" />
+              Add Rule
+            </button>
+            <button
+              onClick={() => setShowDeliveryMonitor(true)}
+              className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 transition-colors duration-150 font-medium"
+            >
+              <Activity className="h-5 w-5" />
+              Monitor
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-md shadow-sm p-3 hover:shadow-md transition-all duration-200">
-            <div className="flex items-center">
-              <div className="p-1.5 bg-blue-100 rounded-md">
-                <Zap className="h-5 w-5 text-blue-600" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-10">
+          <div className="bg-white rounded-md shadow-sm border border-neutral-200 p-3 hover:shadow-md transition-shadow duration-150">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-50 rounded-md flex items-center justify-center">
+                <Zap className="h-6 w-6 text-blue-600" />
               </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Total Rules</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {isLoading ? '...' : rules.length}
+              <div>
+                <p className="text-sm font-medium text-neutral-500 mb-1">Total Rules</p>
+                <p className="text-2xl font-light text-neutral-900">
+                  {isLoading ? '—' : rules.length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-md shadow-sm p-3 hover:shadow-md transition-all duration-200">
-            <div className="flex items-center">
-              <div className="p-1.5 bg-green-100 rounded-md">
-                <Play className="h-5 w-5 text-green-600" />
+          <div className="bg-white rounded-md shadow-sm border border-neutral-200 p-3 hover:shadow-md transition-shadow duration-150">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-green-50 rounded-md flex items-center justify-center">
+                <Play className="h-6 w-6 text-green-600" />
               </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Active</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {isLoading ? '...' : rules.filter(r => r.enabled).length}
+              <div>
+                <p className="text-sm font-medium text-neutral-500 mb-1">Active</p>
+                <p className="text-2xl font-light text-neutral-900">
+                  {isLoading ? '—' : rules.filter(r => r.enabled).length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-md shadow-sm p-3 hover:shadow-md transition-all duration-200">
-            <div className="flex items-center">
-              <div className="p-1.5 bg-emerald-100 rounded-md">
-                <CheckCircle className="h-5 w-5 text-emerald-600" />
+          <div className="bg-white rounded-md shadow-sm border border-neutral-200 p-3 hover:shadow-md transition-shadow duration-150">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-neutral-100 rounded-md flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-neutral-600" />
               </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Inactive</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {isLoading ? '...' : rules.filter(r => !r.enabled).length}
+              <div>
+                <p className="text-sm font-medium text-neutral-500 mb-1">Inactive</p>
+                <p className="text-2xl font-light text-neutral-900">
+                  {isLoading ? '—' : rules.filter(r => !r.enabled).length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-md shadow-sm p-3 hover:shadow-md transition-all duration-200">
-            <div className="flex items-center">
-              <div className="p-1.5 bg-yellow-100 rounded-md">
-                <Clock className="h-5 w-5 text-yellow-600" />
+          <div className="bg-white rounded-md shadow-sm border border-neutral-200 p-3 hover:shadow-md transition-shadow duration-150">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-50 rounded-md flex items-center justify-center">
+                <Clock className="h-6 w-6 text-amber-600" />
               </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Total Created</p>
-                <p className="text-lg font-semibold text-gray-900">
-                  {isLoading ? '...' : rules.length}
+              <div>
+                <p className="text-sm font-medium text-neutral-500 mb-1">Total Created</p>
+                <p className="text-2xl font-light text-neutral-900">
+                  {isLoading ? '—' : rules.length}
                 </p>
               </div>
             </div>
@@ -270,68 +296,68 @@ export default function AutomationsPage() {
         </div>
 
         {/* Automations Table */}
-        <div className="bg-white rounded-md shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-900">Automation Rules</h3>
+        <div className="bg-white rounded-md shadow-sm border border-neutral-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-neutral-200">
+            <h3 className="text-lg font-medium text-neutral-900">Automation Rules</h3>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-neutral-200">
+              <thead className="bg-neutral-50">
                 <tr>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Rule
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Trigger
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Integration
+                  <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                    Type
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Deliveries
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Last Triggered
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+              <tbody className="bg-white divide-y divide-neutral-200">
                 {isLoading ? (
                   // Loading skeleton rows
                   [...Array(3)].map((_, i) => (
                     <tr key={i}>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="h-3.5 bg-gray-300 rounded animate-pulse mb-1.5" />
-                          <div className="h-2.5 bg-gray-300 rounded animate-pulse w-2/3" />
+                          <div className="h-4 bg-neutral-300 rounded animate-pulse mb-2" />
+                          <div className="h-3 bg-neutral-300 rounded animate-pulse w-2/3" />
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="h-3.5 bg-gray-300 rounded animate-pulse w-16" />
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-neutral-300 rounded animate-pulse w-20" />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="h-3.5 bg-gray-300 rounded animate-pulse w-20" />
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-neutral-300 rounded animate-pulse w-24" />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="h-5 bg-gray-300 rounded-full animate-pulse w-14" />
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-6 bg-neutral-300 rounded-full animate-pulse w-16" />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="h-3.5 bg-gray-300 rounded animate-pulse w-20" />
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-neutral-300 rounded animate-pulse w-24" />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="h-3.5 bg-gray-300 rounded animate-pulse w-16" />
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="h-4 bg-neutral-300 rounded animate-pulse w-20" />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex space-x-1.5">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex space-x-2">
                           {[...Array(4)].map((_, j) => (
-                            <div key={j} className="h-3.5 w-3.5 bg-gray-300 rounded animate-pulse" />
+                            <div key={j} className="h-4 w-4 bg-neutral-300 rounded animate-pulse" />
                           ))}
                         </div>
                       </td>
@@ -339,53 +365,63 @@ export default function AutomationsPage() {
                   ))
                 ) : filteredRules.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center">
-                      <Zap className="h-6 w-6 text-gray-400 mx-auto mb-2" />
-                      <p className="text-xs text-gray-500">
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="w-12 h-12 bg-neutral-100 rounded-md flex items-center justify-center mx-auto mb-4">
+                        <Zap className="h-6 w-6 text-neutral-400" />
+                      </div>
+                      <p className="text-sm text-neutral-600">
                         {searchTerm ? 'No rules match your search' : 'No rules found'}
                       </p>
                     </td>
                   </tr>
                 ) : (
                   filteredRules.map((rule) => (
-                    <tr key={rule.id} className="hover:bg-gray-50 transition-all duration-200">
-                      <td className="px-4 py-3 whitespace-nowrap">
+                    <tr key={rule.id} className="hover:bg-neutral-50 transition-all duration-150">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{rule.name}</div>
-                          <div className="text-xs text-gray-500">{(rule as any).description || 'No description'}</div>
+                          <div className="text-sm font-medium text-neutral-900">{rule.name}</div>
+                          <div className="text-xs text-neutral-500">{(rule as any).description || 'No description'}</div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-xs text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-neutral-900">
                           Basic Automation
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-xs text-gray-900">
-                          <a 
-                            href="/integrations" 
-                            className="text-blue-600 hover:text-blue-800 underline"
-                            title="Manage integrations"
-                          >
-                            Manage
-                          </a>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-neutral-900">
+                          {(() => {
+                            // Find the automation to show its type
+                            const automation = automations.find(a => a.id === rule.automation_id);
+                            return automation ? (
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${automation.kind === 'webhook' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                automation.kind === 'slack' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                                  automation.kind === 'notion' ? 'bg-neutral-50 text-neutral-700 border border-neutral-200' :
+                                    automation.kind === 'sheets' ? 'bg-green-50 text-green-700 border border-green-200' :
+                                      automation.kind === 'whatsapp' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                        'bg-neutral-50 text-neutral-700 border border-neutral-200'
+                                }`}>
+                                {automation.kind.charAt(0).toUpperCase() + automation.kind.slice(1)}
+                              </span>
+                            ) : 'Unknown';
+                          })()}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${rule.enabled
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${rule.enabled
+                          ? 'bg-green-50 text-green-700 border-green-200'
+                          : 'bg-neutral-50 text-neutral-700 border-neutral-200'
                           }`}>
                           {rule.enabled ? (
-                            <Play className="w-2.5 h-2.5 mr-1" />
+                            <Play className="w-3 h-3" />
                           ) : (
-                            <Pause className="w-2.5 h-2.5 mr-1" />
+                            <Pause className="w-3 h-3" />
                           )}
                           {rule.enabled ? 'Active' : 'Paused'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-xs text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-neutral-900">
                           {(() => {
                             const deliveryArray = Array.isArray(deliveries) ? deliveries : [];
                             const ruleDeliveries = deliveryArray.filter((d: any) => d.automation_id === rule.automation_id);
@@ -394,44 +430,44 @@ export default function AutomationsPage() {
                           })()}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                         {formatLastTriggered(rule.updated_at)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
-                        <div className="flex items-center space-x-1.5">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                        <div className="flex items-center gap-3">
                           <button
                             onClick={() => toggleRuleStatus(rule.id)}
                             disabled={toggleRuleMutation.isPending}
-                            className={`${rule.enabled
-                              ? 'text-yellow-600 hover:text-yellow-900'
-                              : 'text-green-600 hover:text-green-900'
-                              } disabled:opacity-50 transition-all duration-200`}
+                            className={`p-2 rounded-md transition-all duration-150 disabled:opacity-50 ${rule.enabled
+                              ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50'
+                              : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                              }`}
                             title={rule.enabled ? 'Pause' : 'Activate'}
                           >
-                            {rule.enabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                            {rule.enabled ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                           </button>
                           <button
                             onClick={() => handleTest(rule)}
                             disabled={testMutation.isPending}
-                            className="text-blue-600 hover:text-blue-900 transition-all duration-200 disabled:opacity-50"
+                            className="p-2 rounded-md text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-all duration-150 disabled:opacity-50"
                             title="Test rule"
                           >
-                            <Zap className="h-3.5 w-3.5" />
+                            <Zap className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleEdit(rule)}
-                            className="text-gray-600 hover:text-gray-900 transition-all duration-200"
+                            className="p-2 rounded-md text-neutral-600 hover:text-neutral-700 hover:bg-neutral-50 transition-all duration-150"
                             title="Edit rule"
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
+                            <Edit2 className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(rule.id)}
                             disabled={deleteRuleMutation.isPending}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50 transition-all duration-200"
+                            className="p-2 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50 transition-all duration-150"
                             title="Delete rule"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -444,7 +480,7 @@ export default function AutomationsPage() {
         </div>
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* Create/Edit Rule Modal */}
       {showCreateModal && (
         <AutomationRuleModal
           isOpen={showCreateModal}
@@ -456,6 +492,26 @@ export default function AutomationsPage() {
           }}
         />
       )}
-    </div >
+
+      {/* Comprehensive Automation Wizard */}
+      {showWizard && (
+        <AutomationWizard
+          isOpen={showWizard}
+          onClose={() => setShowWizard(false)}
+          onSuccess={(automation, rule) => {
+            toast.success('Automation and rule created successfully!');
+            refetch();
+          }}
+        />
+      )}
+
+      {/* Delivery Monitoring Dashboard */}
+      {showDeliveryMonitor && (
+        <DeliveryMonitor
+          isOpen={showDeliveryMonitor}
+          onClose={() => setShowDeliveryMonitor(false)}
+        />
+      )}
+    </div>
   )
 }

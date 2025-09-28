@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  Activity, 
-  Circle, 
-  MapPin, 
-  Smartphone, 
+import {
+  Activity,
+  Circle,
+  MapPin,
+  Smartphone,
   Zap,
   Clock,
   AlertTriangle,
@@ -42,11 +42,11 @@ interface RealTimeMonitorProps {
   compact?: boolean;
 }
 
-export const RealTimeMonitor = ({ 
-  className = '', 
-  showHeader = true, 
+export const RealTimeMonitor = ({
+  className = '',
+  showHeader = true,
   maxEvents = 50,
-  compact = false 
+  compact = false
 }: RealTimeMonitorProps) => {
   const [events, setEvents] = useState<RealtimeEvent[]>([]);
   const [isExpanded, setIsExpanded] = useState(!compact);
@@ -147,8 +147,8 @@ export const RealTimeMonitor = ({
 
   if (!isExpanded && compact) {
     return (
-      <div className={`bg-white rounded-lg border border-gray-200 ${className}`}>
-        <div className="p-4 flex items-center justify-between">
+      <div className={`bg-white rounded-md border border-gray-200 ${className}`}>
+        <div className="p-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isPaused ? 'bg-red-400' : 'bg-green-400 animate-pulse'}`}></div>
@@ -168,9 +168,9 @@ export const RealTimeMonitor = ({
   }
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 ${className}`}>
+    <div className={`bg-white rounded-md border border-gray-200 ${className}`}>
       {showHeader && (
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-2 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
@@ -179,26 +179,25 @@ export const RealTimeMonitor = ({
               </div>
               <span className="text-sm text-gray-500">{events.length} events</span>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsPaused(!isPaused)}
-                className={`px-3 py-1 rounded text-sm font-medium ${
-                  isPaused 
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                    : 'bg-red-100 text-red-700 hover:bg-red-200'
-                }`}
+                className={`px-3 py-1 rounded text-sm font-medium ${isPaused
+                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                  }`}
               >
                 {isPaused ? 'Resume' : 'Pause'}
               </button>
-              
+
               <button
                 onClick={() => setEvents([])}
                 className="px-3 py-1 rounded text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
               >
                 Clear
               </button>
-              
+
               {compact && (
                 <button
                   onClick={() => setIsExpanded(false)}
@@ -211,16 +210,16 @@ export const RealTimeMonitor = ({
           </div>
         </div>
       )}
-      
+
       <div className="max-h-96 overflow-y-auto">
         {events.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
+          <div className="p-3 text-center text-gray-500">
             <Activity className="h-8 w-8 mx-auto mb-2 text-gray-400" />
             <p>No recent activity</p>
             <p className="text-sm">Events will appear here in real-time</p>
           </div>
         ) : (
-          <div className="space-y-2 p-4">
+          <div className="space-y-2 p-2">
             {events.map((event) => (
               <div
                 key={event.id}

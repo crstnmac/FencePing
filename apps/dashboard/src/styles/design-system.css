@@ -1,0 +1,121 @@
+/* Swiss Spa Design System */
+
+:root {
+  /* Premium Color Palette */
+  --color-primary: #1a1a1a;         /* Deep charcoal */
+  --color-secondary: #f8f9fa;       /* Warm white */
+  --color-accent: #2563eb;          /* Professional blue */
+  --color-accent-soft: #eff6ff;     /* Soft blue background */
+  
+  /* Neutrals */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+
+  /* Status Colors */
+  --color-success: #059669;
+  --color-success-soft: #ecfdf5;
+  --color-warning: #d97706;
+  --color-warning-soft: #fffbeb;
+  --color-error: #dc2626;
+  --color-error-soft: #fef2f2;
+
+  /* Minimal Spacing System */
+  --space-xs: 0.25rem;   /* 4px  - micro spacing */
+  --space-sm: 0.5rem;    /* 8px  - component padding */
+  --space-md: 0.75rem;   /* 12px - card padding */
+  --space-lg: 1rem;      /* 16px - section spacing */
+  --space-xl: 1.5rem;    /* 24px - page margins */
+  --space-2xl: 2rem;     /* 32px - layout gaps */
+
+  /* Typography */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Minimal Button Styles */
+.btn-primary {
+  @apply bg-neutral-900 text-white hover:bg-neutral-800 focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2;
+  padding: var(--space-sm) var(--space-lg);
+  transition: all var(--transition-fast);
+}
+
+.btn-secondary {
+  @apply bg-white text-neutral-900 border border-neutral-300 hover:bg-neutral-50 focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2;
+  padding: var(--space-sm) var(--space-lg);
+  transition: all var(--transition-fast);
+}
+
+.btn-ghost {
+  @apply bg-transparent text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2;
+  padding: var(--space-sm) var(--space-lg);
+  transition: all var(--transition-fast);
+}
+
+/* Minimal Card Styles */
+.card-minimal {
+  @apply bg-white border border-neutral-200 rounded-md shadow-sm;
+  padding: var(--space-md);
+  transition: all var(--transition-fast);
+}
+
+.card-minimal:hover {
+  @apply shadow-md border-neutral-300;
+}
+
+/* Glass Effect */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Smooth Scrollbar */
+.premium-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-300) transparent;
+}
+
+.premium-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.premium-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.premium-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: 3px;
+}
+
+.premium-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400);
+}

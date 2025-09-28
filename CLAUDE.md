@@ -8,74 +8,134 @@ GeoFence Webhooks is a location-based automation platform that connects MQTT dev
 
 ## Architecture
 
-The system follows an event-driven architecture with these core components:
+This is a **Turbo monorepo** with TypeScript, using npm workspaces. The system follows an event-driven architecture with these core components:
+
+### Monorepo Structure
+- **apps/api** - Express.js REST API server with Socket.IO (port 3001)
+- **apps/dashboard** - Next.js frontend with **MapLibre GL JS** and **Terra Draw** (port 3000)
+- **apps/automation-workers** - Background job processors using Bull queues
+- **apps/geofence-engine** - Spatial event processing service
+- **apps/mqtt-ingestion** - MQTT client service for device location ingestion
+- **packages/db** - Database layer with PostgreSQL/PostGIS migrations and schemas
+- **packages/shared** - Common TypeScript types, utilities, and Zod validation schemas
 
 ### Data Flow
-1. **Ingestion Layer**: MQTT broker (EMQX/Mosquitto) + REST API fallback
+1. **Ingestion Layer**: MQTT broker (EMQX) + REST API fallback
 2. **Stream Processing**: Kafka topics for event routing and audit logging
 3. **Geospatial Engine**: PostgreSQL + PostGIS for geofence calculations
 4. **Automation Workers**: Webhook processors with retry/DLQ handling
-5. **Dashboard**: Next.js frontend with Mapbox GL for geofence management
+5. **Dashboard**: Next.js frontend with **MapLibre GL JS** (not Mapbox) for geofence management
 
 ### Key Kafka Topics
-- `raw_events`: Incoming device location data
-- `geofence_events`: Enter/exit/dwell events after processing
-- `automations`: Triggered webhook/notification events
-- `audit_log`: Immutable event history for replay
+- `raw_events`: Incoming device location data (7-day retention)
+- `geofence_events`: Enter/exit/dwell events after processing (30-day retention)
+- `automations`: Triggered webhook/notification events (30-day retention)
+- `audit_log`: Immutable event history for replay (1-year retention)
 
 ### Database Schema Focus Areas
-- PostGIS geometry columns for geofence polygons/circles
+- PostGIS GEOMETRY columns for geofence polygons/circles
+- GEOGRAPHY columns for device locations with spatial indexes (GIST)
 - Event tables with ST_Contains/ST_DWithin spatial queries
 - Dwell tracking via window functions with hysteresis logic
-- User/device/integration configuration tables
+- Multi-tenant organization structure with user/device/integration tables
+
+### Key Technologies
+- **Authentication**: Better Auth framework (OAuth with Google, GitHub)
+- **Frontend Maps**: MapLibre GL JS (open-source) with Terra Draw for interactive editing
+- **Background Jobs**: Bull queues with Redis
+- **Build System**: Turbo with 10 concurrent tasks, daemon mode, strict environment variables
+
+## Current Implementation Status
+
+### ✅ Fully Implemented
+- Database schema with PostGIS spatial extensions and indexes
+- Docker Compose infrastructure (PostgreSQL, Kafka, Redis, EMQX MQTT)
+- Turbo monorepo build system with TypeScript compilation
+- Better Auth integration with OAuth providers (Google, GitHub)
+- API server structure with Express.js and Socket.IO
+- Next.js dashboard with MapLibre GL JS and Terra Draw integration
+- Basic frontend components and routing structure
+
+### 🚧 Partially Implemented
+- **API Routes**: Route files exist in `apps/api/src/routes/` but many endpoints need implementation
+- **Geofence Engine**: Basic Kafka consumer setup exists, needs dwell time detection logic
+- **Automation Workers**: Bull queue infrastructure exists, integration logic incomplete
+- **Dashboard UI**: Component structure exists, interactive features need implementation
+- **Better Auth Setup**: Configuration exists, OAuth flows need completion
+
+### ❌ Missing/Incomplete
+- **MQTT Ingestion Service**: Service structure exists but processing logic missing
+- **Integration APIs**: Only basic webhook support, need Google Sheets/Slack/Notion/WhatsApp
+- **Database Seeding**: Migration exists, seeding scripts incomplete
+- **Testing Framework**: Test files exist but implementations missing
+- **Production Deployment**: Missing Kubernetes manifests and CI/CD
+
+### Key Files to Understand
+- **Database**: `packages/db/src/migrations/` - Complete PostGIS schema
+- **API Structure**: `apps/api/src/routes/` - Route definitions needing implementation
+- **Frontend Components**: `apps/dashboard/src/components/` - UI components with MapLibre integration
+- **Workers**: `apps/automation-workers/src/` - Bull queue setup and integration stubs
+- **Shared Types**: `packages/shared/src/` - TypeScript interfaces and Zod schemas
 
 ## Development Commands
 
-### Backend Services
+### Quick Start
 ```bash
-# Start MQTT broker
-docker-compose up mqtt-broker
+# Start all infrastructure services
+npm run docker:up
 
-# Start Kafka cluster
-docker-compose up kafka zookeeper
+# Start all development services
+npm run dev
 
-# Start PostgreSQL with PostGIS
-docker-compose up postgres
-
-# Run geospatial processing service
-npm run dev:geofence-engine
-
-# Run webhook automation workers
-npm run dev:automation-workers
-
-# Run API server
-npm run dev:api
+# Alternative: start individual services
+npm run dev:api          # API server (port 3001)
+npm run dev:dashboard    # Dashboard (port 3000)
+npm run dev:geofence-engine     # Geofence processor
+npm run dev:automation-workers  # Webhook workers
+npm run dev:mqtt-ingestion      # MQTT ingestion service
 ```
 
-### Frontend Dashboard
+### Infrastructure Management
 ```bash
-# Start Next.js development server
-npm run dev:dashboard
+# Docker operations
+npm run docker:up           # Start all infrastructure (postgres, kafka, mqtt, redis)
+npm run docker:down         # Stop all services
+npm run docker:logs         # View logs
+npm run docker:dev          # Development stack
+npm run docker:prod         # Production stack
 
-# Build for production
-npm run build:dashboard
-
-# Run tests
-npm test
-npm run test:geospatial  # PostGIS-specific tests
+# Database operations
+npm run migrate             # Run PostgreSQL migrations
+npm run migrate:create      # Create new migration
+npm run seed:dev           # Seed development data
+npm run backup:events      # Backup event data
+npm run restore:events     # Restore event data
 ```
 
-### Database Operations
+### Code Quality & Build
 ```bash
-# Run PostGIS migrations
-npm run migrate
+# Development workflow
+npm run build              # Build all apps and packages
+npm run lint              # ESLint across all packages
+npm run lint:fix          # Auto-fix linting issues
+npm run typecheck         # TypeScript validation
+npm run format            # Prettier formatting
+npm run format:check      # Check formatting
 
-# Seed test geofences and devices
-npm run seed:dev
+# Utilities
+npm run clean             # Clean build artifacts
+npm run reset             # Full reset and reinstall
+npm run turbo:cache:clear # Clear Turbo cache
+```
 
-# Backup/restore event data
-npm run backup:events
-npm run restore:events
+### Testing
+```bash
+# Note: Test implementations are incomplete (see roadmap)
+npm test                  # Run unit tests
+npm run test:integration  # Integration tests
+npm run test:geospatial   # PostGIS-specific tests
+npm run test:load         # Load testing
+npm run test:automation-flow  # End-to-end automation testing
 ```
 
 ## Core Technical Patterns
@@ -107,18 +167,57 @@ npm run restore:events
 ## Environment Configuration
 
 ### Required Environment Variables
-- `MQTT_BROKER_URL`: MQTT broker connection string
-- `KAFKA_BROKERS`: Kafka cluster endpoints
-- `DATABASE_URL`: PostgreSQL connection with PostGIS enabled
-- `NOTION_CLIENT_ID`, `GOOGLE_SHEETS_API_KEY`: Integration credentials
-- `STRIPE_SECRET_KEY`: Payment processing
-- `MAPBOX_ACCESS_TOKEN`: Map rendering
+```env
+# Core Infrastructure
+DATABASE_URL="postgresql://geofence_user:geofence_pass@localhost:5432/geofence"
+KAFKA_BROKERS=localhost:9092
+MQTT_BROKER_URL=mqtt://localhost:1883
+REDIS_URL=redis://localhost:6379
 
-### Integration Setup
-- OAuth flows for Notion, Google Sheets, Slack
-- Twilio/Meta API setup for WhatsApp notifications
-- Stripe Connect for payment automation triggers
-- Rate limiting configuration per third-party API
+# API Configuration
+PORT=3001
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:3001
+
+# Authentication (Better Auth)
+JWT_SECRET=your-secret-key-change-in-production-at-least-32-characters-long
+JWT_EXPIRES_IN=7d
+```
+
+### Integration Credentials (Optional)
+```env
+# Google Sheets OAuth
+GOOGLE_SHEETS_CLIENT_ID=
+GOOGLE_SHEETS_CLIENT_SECRET=
+
+# Notion OAuth
+NOTION_CLIENT_ID=
+NOTION_CLIENT_SECRET=
+
+# Slack OAuth
+SLACK_CLIENT_ID=
+SLACK_CLIENT_SECRET=
+
+# WhatsApp Business API
+WHATSAPP_BUSINESS_ACCOUNT_ID=
+WHATSAPP_ACCESS_TOKEN=
+
+# Twilio (Alternative WhatsApp)
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+
+# Payment Processing (Optional)
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+```
+
+### Management UI Access (Development)
+- **Dashboard**: http://localhost:3000
+- **EMQX MQTT**: http://localhost:18083 (admin/emqx_dev_password)
+- **Kafka UI**: http://localhost:8080 (if using --profile tools)
+- **pgAdmin**: http://localhost:8081 (admin@geofence.local/geofence123) - Optional
 
 ## Implementation Roadmap
 
@@ -333,3 +432,30 @@ npm run restore:events
 - Test Kafka throughput with concurrent geofence calculations
 - Validate webhook worker scaling under load
 - Monitor PostGIS query performance with spatial indexes
+
+## Important Development Notes
+
+### Code Quality Requirements
+**ALWAYS run these commands after making changes:**
+```bash
+npm run lint          # Run ESLint across all packages
+npm run typecheck     # TypeScript validation across all packages
+```
+
+Individual packages also have their own lint/typecheck commands:
+- `apps/api`: `eslint src/**/*.ts --fix` and `tsc --noEmit`
+- `apps/dashboard`: `next lint --fix` and `tsc --noEmit`
+- `apps/automation-workers`: `eslint src/**/*.ts --fix` and `tsc --noEmit`
+- `apps/geofence-engine`: `eslint src/**/*.ts --fix` and `tsc --noEmit`
+- `apps/mqtt-ingestion`: `eslint src --ext .ts --fix` and `tsc --noEmit`
+
+### Node.js Requirements
+- **Node.js**: ≥20.0.0
+- **npm**: ≥10.0.0 (locked to npm@10.9.3)
+- **Type**: ESM modules throughout the project
+
+### MapLibre vs Mapbox
+**Important**: This project uses **MapLibre GL JS** (open-source), NOT Mapbox GL JS. No Mapbox access token is required. The frontend mapping uses MapLibre with Terra Draw for interactive geofence editing.
+
+### Better Auth Integration
+The project uses Better Auth framework for authentication, which is different from NextAuth. Reference the Better Auth documentation for OAuth implementations and configuration.

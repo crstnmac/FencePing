@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { io } from '../server.js';
 import { z } from 'zod';
 import { query as dbQuery, query } from '@geofence/db';
+import { io } from '../server.js';
 import { validateBody, requireAccount } from '../middleware/validation.js';
 import { requireAuth } from '../middleware/auth.js';
 

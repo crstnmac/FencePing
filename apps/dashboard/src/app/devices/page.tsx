@@ -9,10 +9,10 @@ import { DeviceCommandModal } from '../../components/DeviceCommandModal';
 import { DeviceGroupModal } from '../../components/DeviceGroupModal';
 import { AssignToGroupModal } from '../../components/AssignToGroupModal';
 import { AutomationRuleModal } from '../../components/AutomationRuleModal';
-import { 
-  useDevices, 
-  useDeleteDevice, 
-  useCreateDevice, 
+import {
+  useDevices,
+  useDeleteDevice,
+  useCreateDevice,
   useUpdateDevice,
   useDeviceGroups,
   useCreateDeviceGroup,
@@ -22,11 +22,11 @@ import {
   useAutomationRulesForDevice
 } from '../../hooks/useApi';
 import type { Device, DeviceGroup } from '../../services/api';
-import { 
-  Plus, 
-  Search, 
-  Edit2, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
   MapPin,
   Activity,
   Clock,
@@ -75,8 +75,8 @@ export default function EnhancedDevicesPage() {
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [selectedDeviceForRule, setSelectedDeviceForRule] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
-  
+  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -96,10 +96,10 @@ export default function EnhancedDevicesPage() {
   const filteredDevices = devices.filter(device => {
     // Search filter
     const matchesSearch = device.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (device.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (device.description || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     // Status filter
-    const matchesStatus = !filters.status || filters.status === 'all' || 
+    const matchesStatus = !filters.status || filters.status === 'all' ||
       (filters.status === 'active' && device.is_active) ||
       (filters.status === 'inactive' && !device.is_active) ||
       (filters.status === 'online' && device.status === 'online') ||
@@ -143,8 +143,8 @@ export default function EnhancedDevicesPage() {
   };
 
   const toggleDeviceSelection = (deviceId: string) => {
-    setSelectedDevices(prev => 
-      prev.includes(deviceId) 
+    setSelectedDevices(prev =>
+      prev.includes(deviceId)
         ? prev.filter(id => id !== deviceId)
         : [...prev, deviceId]
     );
@@ -170,7 +170,7 @@ export default function EnhancedDevicesPage() {
   // Event handlers
   const handleCreateDevice = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (selectedDevice) {
       // Update existing device
       updateDeviceMutation.mutate(
@@ -252,7 +252,7 @@ export default function EnhancedDevicesPage() {
 
   const handleBulkDelete = () => {
     if (selectedDevices.length === 0) return;
-    
+
     if (confirm(`Are you sure you want to delete ${selectedDevices.length} devices?`)) {
       bulkDeleteMutation.mutate(selectedDevices, {
         onSuccess: () => {
@@ -281,7 +281,7 @@ export default function EnhancedDevicesPage() {
     // For bulk assignment, we can either implement a bulk API endpoint or call individual assignments
     // For now, we'll use individual assignments
     Promise.all(
-      deviceIds.map(deviceId => 
+      deviceIds.map(deviceId =>
         assignToGroupMutation.mutateAsync({ deviceId, groupId })
       )
     ).then(() => {
@@ -299,63 +299,59 @@ export default function EnhancedDevicesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header title="Device Management" />
-      
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="sm:flex sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">Device Management</h1>
-              <p className="mt-1 text-xs text-gray-600">
-                Manage your devices, send commands, and organize into groups
-              </p>
-            </div>
-            <div className="mt-3 sm:mt-0 sm:ml-12 sm:flex-none">
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setShowPairingModal(true)}
-                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
-                >
-                  <Plus className="h-3 w-3 mr-1.5" />
-                  Pair Device
-                </button>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center justify-center rounded-lg border border-transparent bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
-                >
-                  <Plus className="h-3 w-3 mr-1.5" />
-                  Add Device
-                </button>
-              </div>
-            </div>
+    <div className="flex flex-col h-full bg-neutral-50">
+      <Header title="Device Management" subtitle="Manage your devices, send commands, and organize into groups" />
+
+      <div className="flex-1 overflow-auto p-3">
+        {/* Header Actions */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-light text-neutral-900 tracking-tight mb-2">Device Management</h1>
+            <p className="text-neutral-600">
+              Manage your devices, send commands, and organize into groups
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowPairingModal(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-transparent bg-indigo-600 px-3 py-2 font-medium text-white shadow-sm hover:bg-indigo-700 transition-colors duration-150"
+            >
+              <Plus className="h-5 w-5" />
+              Pair Device
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-transparent bg-blue-600 px-3 py-2 font-medium text-white shadow-sm hover:bg-blue-700 transition-colors duration-150"
+            >
+              <Plus className="h-5 w-5" />
+              Add Device
+            </button>
           </div>
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2.5 mb-3">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1.5">
+        <div className="bg-white rounded-md shadow-sm border border-neutral-200 p-3 mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             {/* Search */}
             <div className="flex-1 max-w-md">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-400" />
                 <input
                   type="text"
                   placeholder="Search devices..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 pr-3 py-1.5 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                  className="pl-12 pr-4 py-3 w-full border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-300 text-sm bg-white"
                 />
               </div>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-3">
               <select
                 value={filters.status || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any || undefined }))}
-                className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                className="px-3 py-2 border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-300 text-sm bg-white"
               >
                 <option value="">All Status</option>
                 <option value="active">Active</option>
@@ -367,7 +363,7 @@ export default function EnhancedDevicesPage() {
               <select
                 value={filters.deviceType || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, deviceType: e.target.value || undefined }))}
-                className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                className="px-3 py-2 border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-300 text-sm bg-white"
               >
                 <option value="">All Types</option>
                 <option value="mobile">Mobile</option>
@@ -381,7 +377,7 @@ export default function EnhancedDevicesPage() {
               <select
                 value={filters.groupId || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, groupId: e.target.value || undefined }))}
-                className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                className="px-3 py-2 border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-300 text-sm bg-white"
               >
                 <option value="">All Groups</option>
                 {groups.map(group => (
@@ -392,7 +388,7 @@ export default function EnhancedDevicesPage() {
               <select
                 value={filters.lastSeen || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, lastSeen: e.target.value as any || undefined }))}
-                className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                className="px-3 py-2 border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-300 text-sm bg-white"
               >
                 <option value="">All Time</option>
                 <option value="hour">Last Hour</option>
@@ -403,9 +399,9 @@ export default function EnhancedDevicesPage() {
 
               <button
                 onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
-                className="px-2 py-1 border border-gray-300 rounded-md hover:bg-gray-50 text-xs flex items-center transition-all duration-200"
+                className="px-3 py-2 border border-neutral-200 rounded-md hover:bg-neutral-50 text-sm flex items-center gap-2 transition-colors duration-150 bg-white"
               >
-                <Layers className="h-3 w-3 mr-1" />
+                <Layers className="h-5 w-5" />
                 {viewMode === 'table' ? 'Grid' : 'Table'}
               </button>
             </div>
@@ -413,30 +409,30 @@ export default function EnhancedDevicesPage() {
 
           {/* Bulk Actions */}
           {selectedDevices.length > 0 && (
-            <div className="mt-2.5 p-2.5 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
-              <span className="text-xs text-blue-700">
+            <div className="mt-6 p-2 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
+              <span className="text-sm text-blue-700 font-medium">
                 {selectedDevices.length} device{selectedDevices.length > 1 ? 's' : ''} selected
               </span>
-              <div className="flex items-center space-x-1.5">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowAssignGroupModal(true)}
-                  className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md text-xs hover:bg-blue-200 transition-all duration-200"
+                  className=" bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition-colors duration-150 flex items-center gap-2"
                 >
-                  <Users className="h-3 w-3 mr-1 inline" />
+                  <Users className="h-4 w-4" />
                   Assign to Group
                 </button>
                 <button
                   onClick={handleBulkDelete}
-                  className="px-2.5 py-1 bg-red-100 text-red-700 rounded-md text-xs hover:bg-red-200 transition-all duration-200"
+                  className=" bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition-colors duration-150 flex items-center gap-2"
                 >
-                  <Trash2 className="h-3 w-3 mr-1 inline" />
+                  <Trash2 className="h-4 w-4" />
                   Delete Selected
                 </button>
                 <button
                   onClick={() => setShowGroupModal(true)}
-                  className="px-2.5 py-1 bg-green-100 text-green-700 rounded-md text-xs hover:bg-green-200 transition-all duration-200"
+                  className=" bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors duration-150 flex items-center gap-2"
                 >
-                  <Plus className="h-3 w-3 mr-1 inline" />
+                  <Plus className="h-4 w-4" />
                   Create Group
                 </button>
               </div>
@@ -446,7 +442,7 @@ export default function EnhancedDevicesPage() {
 
         {/* Device List */}
         {viewMode === 'table' ? (
-          <DeviceTable 
+          <DeviceTable
             devices={filteredDevices}
             loading={devicesLoading}
             selectedDevices={selectedDevices}
@@ -466,7 +462,7 @@ export default function EnhancedDevicesPage() {
             formatLastSeen={formatLastSeen}
           />
         ) : (
-          <DeviceGrid 
+          <DeviceGrid
             devices={filteredDevices}
             loading={devicesLoading}
             onEdit={handleEdit}
@@ -481,7 +477,7 @@ export default function EnhancedDevicesPage() {
         )}
 
         {/* Modals */}
-        <DevicePairingModal 
+        <DevicePairingModal
           isOpen={showPairingModal}
           onClose={() => setShowPairingModal(false)}
           onSuccess={() => {
@@ -492,34 +488,34 @@ export default function EnhancedDevicesPage() {
 
         {/* Create/Edit Device Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 z-50">
-            <div className="bg-white rounded-md p-4 w-full max-w-sm">
-              <h3 className="text-sm font-semibold mb-3">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 z-50">
+            <div className="bg-white rounded-2xl p-3 w-full max-w-md">
+              <h3 className="text-xl font-medium text-neutral-900 mb-6">
                 {selectedDevice ? 'Edit Device' : 'Create New Device'}
               </h3>
-              
-              <form onSubmit={handleCreateDevice} className="space-y-3">
+
+              <form onSubmit={handleCreateDevice} className="space-y-6">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Device Name *
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-300 text-sm"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Device Type *
                   </label>
                   <select
                     value={formData.device_type}
                     onChange={(e) => setFormData(prev => ({ ...prev, device_type: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-300 text-sm"
                     required
                   >
                     <option value="mobile">Mobile Phone</option>
@@ -532,18 +528,18 @@ export default function EnhancedDevicesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Description
                   </label>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-300 text-sm"
                   />
                 </div>
 
-                <div className="flex justify-end space-x-2 pt-3">
+                <div className="flex justify-end gap-3 pt-6">
                   <button
                     type="button"
                     onClick={() => {
@@ -551,13 +547,13 @@ export default function EnhancedDevicesPage() {
                       setSelectedDevice(null);
                       setFormData({ name: '', description: '', device_type: 'mobile' });
                     }}
-                    className="px-3 py-1.5 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 text-xs transition-all duration-200"
+                    className="px-6 py-3 text-neutral-700 border border-neutral-300 rounded-md hover:bg-neutral-50 transition-colors duration-150"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-xs transition-all duration-200"
+                    className="px-6 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors duration-150"
                     disabled={createDeviceMutation.isPending || updateDeviceMutation.isPending}
                   >
                     {(createDeviceMutation.isPending || updateDeviceMutation.isPending) ? 'Saving...' : (selectedDevice ? 'Update Device' : 'Create Device')}
@@ -598,9 +594,8 @@ export default function EnhancedDevicesPage() {
         {/* Notification */}
         {notification && (
           <div className="fixed bottom-3 right-3 max-w-sm w-full z-50">
-            <div className={`rounded-md p-3 shadow-md ${
-              notification.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-            }`}>
+            <div className={`rounded-md p-3 shadow-md ${notification.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+              }`}>
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   {notification.type === 'success' ? (
@@ -641,9 +636,9 @@ export default function EnhancedDevicesPage() {
         }}
         preselectedDeviceId={selectedDeviceForRule || undefined}
         onSuccess={(rule) => {
-          setNotification({ 
-            type: 'success', 
-            message: `Automation rule "${rule.name}" created successfully` 
+          setNotification({
+            type: 'success',
+            message: `Automation rule "${rule.name}" created successfully`
           });
         }}
       />

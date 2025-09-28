@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import { query, queryWithTimeout } from '@geofence/db';
@@ -14,7 +15,6 @@ import {
   accountRateLimit, 
   rateLimitPresets 
 } from '../middleware/rateLimiting.js';
-import { randomBytes } from 'crypto';
 import { getKafkaProducer } from '../kafka/producer.js';
 import {
   generateDeviceTokens,
