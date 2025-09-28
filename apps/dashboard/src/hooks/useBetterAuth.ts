@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { authClient } from '../lib/auth-client';
+import { authClient } from '@/lib/auth-client';
 import { useBetterAuthSession } from '../contexts/BetterAuthContext';
 
 // Compatibility interface matching the existing useAuth hook

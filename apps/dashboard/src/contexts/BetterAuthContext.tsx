@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { authClient, useSession } from '../lib/auth-client';
+import { authClient, useSession } from '@/lib/auth-client';
 
 // Better Auth context types
 interface BetterAuthContextType {

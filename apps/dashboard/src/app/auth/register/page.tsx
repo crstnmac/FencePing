@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../hooks/useAuth';
-import { authClient } from '../../../lib/auth-client';
+import { authClient } from '@/lib/auth-client';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
