@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v4';
 
 export const DeviceLocationSchema = z.object({
   deviceId: z.string().uuid(),
@@ -7,7 +7,7 @@ export const DeviceLocationSchema = z.object({
   altitude: z.number().optional(),
   accuracy: z.number().min(0).optional(),
   timestamp: z.string().datetime().optional(),
-  metadata: z.record(z.unknown()).optional()
+  metadata: z.record(z.string(), z.unknown()).optional()
 });
 
 export const GeofenceSchema = z.object({
@@ -25,7 +25,7 @@ export const GeofenceSchema = z.object({
       z.array(z.tuple([z.number(), z.number()])).min(3)
     ])
   }),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   isActive: z.boolean().default(true)
 });
 
@@ -39,7 +39,7 @@ export const AutomationRuleSchema = z.object({
   integrationId: z.string().uuid(),
   triggerType: z.enum(['enter', 'exit', 'dwell']),
   dwellTimeMinutes: z.number().min(0).default(0),
-  actionConfig: z.record(z.unknown()),
+  actionConfig: z.record(z.string(), z.unknown()),
   enabled: z.boolean().default(true)
 });
 
@@ -48,8 +48,8 @@ export const IntegrationSchema = z.object({
   name: z.string().min(1).max(255),
   type: z.enum(['notion', 'google_sheets', 'slack', 'whatsapp', 'webhook']),
   accountId: z.string().uuid(),
-  config: z.record(z.unknown()),
-  credentials: z.record(z.unknown()),
+  config: z.record(z.string(), z.unknown()),
+  credentials: z.record(z.string(), z.unknown()),
   enabled: z.boolean().default(true)
 });
 
@@ -62,7 +62,7 @@ export const EventSchema = z.object({
     latitude: z.number(),
     longitude: z.number()
   }).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   timestamp: z.string().datetime()
 });
 
